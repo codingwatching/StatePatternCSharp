@@ -59,26 +59,32 @@ namespace BAStudio.StatePattern
 
 		protected virtual void PreSideTrackStateChange (State fromState, State toState, TRACK sideTrack)
 		{
-			if (debugOutput != null) LogFormat("A StateMachine<{0}> is switching SIDETRACK#{3} from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, toState.GetType().Name, sideTrack);
+			if (debugOutput != null && (DebugFlags & DebugFlag_StateChange) != 0) LogFormat("A StateMachine<{0}> is switching SIDETRACK#{3} from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, toState.GetType().Name, sideTrack);
 			fromState?.OnLeaving(this, toState, Subject);
 			OnSideTrackStateChanging?.Invoke(sideTrack, fromState, toState);
 		}
 
 		protected virtual void PostSideTrackStateChange (State fromState, State toState, TRACK sideTrack)
 		{
-			if (debugOutput != null) LogFormat("A MultiTrackStateMachine<{0}> has switched SIDETRACK#{3} from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, toState.GetType().Name, sideTrack);
+			if (debugOutput != null && (DebugFlags & DebugFlag_StateChange) != 0) LogFormat("A MultiTrackStateMachine<{0}> has switched SIDETRACK#{3} from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, toState.GetType().Name, sideTrack);
 			SendEvent(new SideTrackStateChangedEvent(sideTrack, fromState, toState));
 			OnSideTrackStateChanged?.Invoke(sideTrack, fromState, toState);
+
+			fromState?.Reset();
 		}
-		
+
 		public override void Update ()
 		{
-			if (UpdatePaused) return;
-			if (Subject == null) throw new System.NullReferenceException("Target is null.");
+            SelfDiagnosticOnUpdate();
 
-			UpdateMainState();
+            if (UpdatePaused) return;
+            if (Subject == null) throw new System.NullReferenceException("Target is null.");
+
+            IsUpdating = true;
+            UpdateMainState();
 			UpdateSideTracks();
-			UpdatePopStates();
+            UpdatePopupStates();
+            IsUpdating = false;
 		}
 
 		protected void UpdateSideTracks ()
@@ -86,7 +92,8 @@ namespace BAStudio.StatePattern
 			for (int i = 0; i < SideTracks.Length; i++)
 			if (SideTracks[i] is not NoOpState)
 			{
-				if (SideTracks[i] == null) throw new System.NullReferenceException("SideTrack is null. Did you set a state after instantiate this controller?");
+				if (SideTracks[i] == null)
+					throw new System.NullReferenceException($"SideTrack#{i} is null. Did you set a state after instantiate this controller?");
 				else SideTracks[i].Update(this, Subject);
 			}
 		}
@@ -94,13 +101,13 @@ namespace BAStudio.StatePattern
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		protected void SendEventToSideTracks <E> (E ev)
 		{
-			for (int i = 0; i < SideTracks.Length; i++)
+			for (int i = 0; i < SideTracks?.Length; i++)
 				if (SideTracks[i] is IEventReceiverState<T, E> ers) ers.ReceiveEvent(this, Subject, ev);
 		}
 
         public override bool SendEvent<E> (E ev)
         {
-			LogFormat("A MultiTrackStateMachine<{0}> is invoking {1}, the active state (receiver) is {2}", Subject.GetType().Name, CurrentState?.GetType()?.Name, ev.GetType().Name);
+			if (debugOutput != null && (DebugFlags & DebugFlag_Event) != 0) LogFormat("A MultiTrackStateMachine<{0}> is invoking {1}, the active state (receiver) is {2}", Subject.GetType().Name, CurrentState?.GetType()?.Name, ev.GetType().Name);
 
 			SendEventToCurrentState(ev);
 			SendEventToSideTracks(ev);

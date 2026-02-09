@@ -111,12 +111,9 @@ namespace BAStudio.StatePattern
         }
 
         /// <summary>
-        /// 
-        /// **Warning: The method explicitly cast the values to TInt.**
+        /// Helper method. Expensive(Enum.GetValues).
+        /// **Warning: The method explicitly cast the values to TInt; please make sure the TEnum is compatible.**
         /// </summary>
-        /// <typeparam name="TEnum"></typeparam>
-        /// <typeparam name="TInt"></typeparam>
-        /// <returns></returns>
         public static (TInt min, TInt max) MinMax<TEnum, TInt>() where TEnum : unmanaged, Enum where TInt : unmanaged
         {
             var valueMap = System.Enum.GetValues(typeof(TEnum));
@@ -124,6 +121,10 @@ namespace BAStudio.StatePattern
             return ((TInt) valueMap.GetValue(0), (TInt) valueMap.GetValue(valueMap.Length - 1));
         }
 
+        /// <summary>
+        /// Helper method. Expensive(Enum.GetValues).
+        /// **Warning: The method explicitly cast the values to int; please make sure the TEnum is compatible.**
+        /// </summary>
         public static (int min, int max) MinMaxInt<TEnum>() where TEnum : unmanaged, Enum
         => MinMax<TEnum, int>();
     }

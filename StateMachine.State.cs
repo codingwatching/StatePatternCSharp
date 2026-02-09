@@ -11,6 +11,16 @@ namespace BAStudio.StatePattern
 			/// </summary>
 			public abstract void Update(StateMachine<T> machine, T subject);
 			public abstract void OnLeaving(StateMachine<T> machine, State next, T subject, object parameter = null);
+
+			/// <summary>
+			/// When used with ChangedState<S>, states are cached and reused. Reset() get called after the machine finished the whole ChangeState().
+			/// </summary>
+			public abstract void Reset ();
+
+#if UNITY_2017_1_OR_NEWER
+			public virtual void FixedUpdate(StateMachine<T> machine, T subject) {}
+			public virtual void LateUpdate(StateMachine<T> machine, T subject) {}
+#endif
         }
     }
 }

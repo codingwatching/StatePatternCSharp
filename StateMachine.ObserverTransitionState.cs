@@ -6,13 +6,14 @@ namespace BAStudio.StatePattern
     {
         public abstract class ObserverTransitionState<H, FROM, TO> : State, IObserver<H> where FROM : State where TO : State, new()
         {
-            IDisposable handle;
+            IDisposable? handle;
+            private readonly IObservable<H>? observable;
             TO instancedNext;
             object parameter;
 
 			public ObserverTransitionState(IObservable<H> observable, TO instance = null, object parameter = null)
             {
-                handle = observable.Subscribe(this);
+                this.observable = observable;
                 instancedNext = instance;
                 this.parameter = parameter;
             }
@@ -25,11 +26,12 @@ namespace BAStudio.StatePattern
                 isCompleted = false;
                 exception = null;
                 progress = default(H);
+                handle = observable?.Subscribe(this);
             }
 
             public override void OnLeaving(StateMachine<T> machine, State next, T subject, object parameter = null)
             {
-                handle.Dispose();
+                handle!.Dispose();
             }
 
             public override void Update(StateMachine<T> machine, T subject)
@@ -39,7 +41,9 @@ namespace BAStudio.StatePattern
                     if (instancedNext != null) machine.ChangeState(instancedNext, parameter);
                     else machine.ChangeState<TO>(parameter);
                 }
-                else if (exception != null) { /* DEBUG OUTPUT */ }
+                else if (exception != null) {
+                    throw exception;
+                }
             }
 
             bool isCompleted;

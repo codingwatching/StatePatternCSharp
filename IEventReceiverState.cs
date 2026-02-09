@@ -9,4 +9,9 @@ namespace BAStudio.StatePattern
     {
         void ReceiveEvent(StateMachine<T> machine, T subject, E ev);
     }
+
+    public interface IEventReceiverState<E>
+    {
+        void ReceiveEvent(E ev);
+    }
 }

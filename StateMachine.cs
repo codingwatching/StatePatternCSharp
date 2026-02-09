@@ -5,15 +5,20 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
-using UnityEngine;
 
 namespace BAStudio.StatePattern
 {
     public partial class StateMachine<T>
     {
-        static StringBuilder DebugStringBuilder { get; set; }
-        protected System.Action<string> debugOutput;
-        public event System.Action<string> DebugOutput { add => debugOutput += value; remove => debugOutput -= value; }
+        protected System.Action<string, object[]> debugOutput;
+        public event System.Action<string, object[]> DebugOutput { add => debugOutput += value; remove => debugOutput -= value; }
+        public int DebugFlags { get; set; } = 0;
+        public const int DebugFlag_StateChange = 1 << 0;
+        public const int DebugFlag_PopupState = 1 << 1;
+        public const int DebugFlag_Event = 1 << 2;
+        public const int DebugFlag_Component = 1 << 3;
+        public const int DebugFlag_All = DebugFlag_StateChange | DebugFlag_PopupState | DebugFlag_Event | DebugFlag_Component;
+
         public StateMachine(T subject)
         {
             Subject = subject;
@@ -39,37 +44,45 @@ namespace BAStudio.StatePattern
 
         /// <summary>
         /// <para> Optimization flag.</para>
-        /// <para> ChangeState<S> new and cache a State the firstime the State is used.</para>
-        /// <para> If for every S, you set all the component S needs before the first time you call `ChangeState<S>`, 
-        /// enable this to skip injection(Reflection) everytime `ChangeState<S>` is called. (not for ChangeState(State)).</para>
+        /// <para> The generic ChangeState<S> create, cache and reuse the S. </para>
+        /// <para> Enable this to skip DI if you make sure all needed components are already provided via SetComponent.</para>
         /// </summary>
-        public bool OnlyInjectsNewForCachedStates { get; set; } = false;
+        public bool DeliverOnlyOnceForCachedStates { get; set; } = false;
         public event Action<State, State> OnStateChanging;
         public event Action<State, State> OnStateChanged;
         protected Dictionary<Type, State> AutoStateCache { get; set; }
         protected List<IPopupState> PopupStates { get; set; }
+        protected List<IPopupState> PopupStatesToEnd { get; set; }
         public event Action<IPopupState> PopupStateStarted;
         public event Action<IPopupState> PopupStateEnded;
         Dictionary<Type, object> Components { get; set; }
-        Dictionary<Type, PropertyInfo[]> PropInfoMap { get; set; }
+        Dictionary<Type, bool> TypesDisabledAutoComponents { get; set; }
+        Dictionary<Type, PropertyInfo[]?> PropInfoMap { get; set; }
+        public bool IsUpdating { get; protected set; }
+        public bool IsChangingState { get => stateChangingDepth > 0; }
+        int stateChangingDepth;
         public void Popup(IPopupState s, object parameter = null)
         {
+            if (PopupStates == null)
+                PopupStates = new List<IPopupState>();
+            if (PopupStates.Contains(s))
+                throw new Exception("PopupState already added");
             PopupStates.Add(s);
             s.OnStarting(this, Subject, parameter);
 			SendEvent(new NewPopupStateEvent(s));
             PopupStateStarted?.Invoke(s);
         }
 
-        public bool IsUpdating { get; protected set; }
-        public bool IsChangingState { get => stateChangingDepth > 0; }
-        int stateChangingDepth;
-
         /// <summary>
         /// The new PopupState is returned so you can do something to it like Update() once immediately.
         /// </summary>
         public S Popup<S>(object parameter = null) where S : IPopupState, new()
         {
+            if (PopupStates == null)
+                PopupStates = new List<IPopupState>();
             S s = new S();
+            if (PopupStates.Contains(s))
+                throw new Exception("PopupState already added");
             PopupStates.Add(s);
             s.OnStarting(this, Subject, parameter);
 			SendEvent(new NewPopupStateEvent(s));
@@ -78,14 +91,22 @@ namespace BAStudio.StatePattern
         }
         public void EndPopupState(IPopupState s, object parameter = null)
         {
+            if (PopupStatesToEnd == null)
+                PopupStatesToEnd = new List<IPopupState>();
+
             s.OnEnding(this, Subject, parameter);
-            PopupStates.Remove(s);
             PopupStateEnded?.Invoke(s);
 			SendEvent(new PopupStateEndedEvent(s));
+            if (IsUpdating)
+            {
+                PopupStatesToEnd.Add(s);
+                return;
+            }
+            PopupStates.Remove(s);
         }
-        public IReadOnlyCollection<IPopupState> ViewPopupStates ()
+        public IReadOnlyCollection<IPopupState>? ViewPopupStates ()
         {
-            return PopupStates.AsReadOnly();
+            return PopupStates?.AsReadOnly();
         }
 
         public void SetComponent<PT, CT>(CT obj) where CT : PT
@@ -108,6 +129,8 @@ namespace BAStudio.StatePattern
             DeliverComponents(state); // Though maybe not useful, calling this here give prev a chance to provide components
             state.OnEntered(this, prev, Subject, parameter);
             PostStateChange(prev);
+
+            prev?.Reset();
         }
 
         /// <summary>
@@ -121,16 +144,19 @@ namespace BAStudio.StatePattern
             {
                 S newS = new S();
                 AutoStateCache.Add(typeof(S), newS);
-                if (OnlyInjectsNewForCachedStates) DeliverComponents(newS);
+                if (DeliverOnlyOnceForCachedStates) DeliverComponents(newS);
             }
 
             var prev = CurrentState;
             var state = AutoStateCache[typeof(S)];
             PreStateChange(CurrentState, state, parameter);
             CurrentState = state;
-            if (!OnlyInjectsNewForCachedStates) DeliverComponents(state); // Though maybe not useful, calling this here give prev a chance to provide components
+            if (!DeliverOnlyOnceForCachedStates)
+                DeliverComponents(state); // Though maybe not useful, calling this here give prev a chance to provide components
             state.OnEntered(this, prev, Subject, parameter);
             PostStateChange(prev);
+
+            prev?.Reset();
         }
 
         /// <summary>
@@ -142,10 +168,24 @@ namespace BAStudio.StatePattern
             if (state is IComponentUser cu)
             {
                 Type stateType = state.GetType();
-                if (PropInfoMap == null) PropInfoMap = new Dictionary<Type, PropertyInfo[]>();
-                if (!PropInfoMap.TryGetValue(stateType, out var allPIs))
+                if (!TypesDisabledAutoComponents.TryGetValue(stateType, out var isDisabled))
                 {
-                    // if (stateType.GetCustomAttribute<AtuoFill>)
+                    isDisabled = stateType.GetCustomAttribute<DisableAutoComponents>() != null;
+                    TypesDisabledAutoComponents[stateType] = isDisabled;
+                }
+
+                if (isDisabled)
+                {
+                    foreach (var kvp in Components)
+                        cu.OnComponentSupplied(kvp.Key, kvp.Value);
+                    return;
+                }
+
+                if (PropInfoMap == null) PropInfoMap = new Dictionary<Type, PropertyInfo[]?>();
+
+                // This state type has not been queried yet
+                if (!PropInfoMap.TryGetValue(stateType, out var allPropInfos))
+                {
                     var queried = stateType.GetProperties(System.Reflection.BindingFlags.Instance
                                                         | System.Reflection.BindingFlags.Public
                                                         | System.Reflection.BindingFlags.NonPublic
@@ -153,19 +193,24 @@ namespace BAStudio.StatePattern
                                                           .Where(
                                                             pi => pi.GetCustomAttribute(typeof(AutoComponentAttribute), false) != null
                                                           ).ToArray();
-                    if (queried.Length == 0) PropInfoMap[stateType] = null;
-                    else PropInfoMap[stateType] = queried;
+                    if (queried .Length == 0) PropInfoMap[stateType] = null;
+                    else
+                    {
+                        allPropInfos = queried;
+                        PropInfoMap[stateType] = allPropInfos;
+                    }
                 }
-                else if (allPIs == null) // the state is marked to not auto fill or it has no autocomponent
+                
+                if (allPropInfos == null)
                 {
                     foreach (var kvp in Components)
                         cu.OnComponentSupplied(kvp.Key, kvp.Value);
                 }
                 else
                 {
-                    foreach (var pi in PropInfoMap[stateType])
+                    foreach (var pi in allPropInfos)
                     {
-                        Type propType = pi.DeclaringType;
+                        Type propType = pi.PropertyType;
                         if (Components.TryGetValue(propType, out var comp))
                         {
                             pi.SetValue(state, comp);
@@ -179,7 +224,7 @@ namespace BAStudio.StatePattern
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual void PreStateChange(State fromState, State toState, object parameter = null)
         {
-            if (debugOutput != null) LogFormat("A StateMachine<{0}> is switching from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, toState.GetType().Name);
+            if (debugOutput != null && (DebugFlags & DebugFlag_StateChange) != 0) LogFormat("A StateMachine<{0}> is switching from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, toState.GetType().Name);
 
             stateChangingDepth++;
 
@@ -190,7 +235,8 @@ namespace BAStudio.StatePattern
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual void PostStateChange(State fromState)
         {
-            if (debugOutput != null) LogFormat("A StateMachine<{0}> has switched from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, CurrentState.GetType().Name);
+            if (debugOutput != null && (DebugFlags & DebugFlag_StateChange) != 0)
+                LogFormat("A StateMachine<{0}> has switched from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, CurrentState.GetType().Name);
 			SendEvent(new MainStateChangedEvent(fromState, CurrentState));
             OnStateChanged?.Invoke(fromState, CurrentState);
 
@@ -205,7 +251,8 @@ namespace BAStudio.StatePattern
         /// <typeparam name="S"></typeparam>
         public void Cache<S> (S state) where S : State
         {
-            if (OnlyInjectsNewForCachedStates) DeliverComponents(state);
+            if (DeliverOnlyOnceForCachedStates) DeliverComponents(state);
+            if (AutoStateCache == null) AutoStateCache = new Dictionary<Type, State>();
             AutoStateCache[typeof(S)] = state;
         }
 
@@ -218,13 +265,79 @@ namespace BAStudio.StatePattern
 
             IsUpdating = true;
             UpdateMainState();
-            UpdatePopStates();
+            UpdatePopupStates();
             IsUpdating = false;
         }
 
-        void SelfDiagnosticOnUpdate ()
+
+#if UNITY_2017_1_OR_NEWER
+        public bool IsFixedUpdating { get; protected set; }
+        public bool IsLateUpdating { get; protected set; }
+        public virtual void FixedUpdate(StateMachine<T> machine, T subject)
         {
-            if (stateChangingDepth > 0) throw new Exception("State change is not properly finished. Is there an exception?");
+            SelfDiagnosticOnUpdate();
+
+            if (UpdatePaused) return;
+            if (Subject == null) throw new System.NullReferenceException("Target is null.");
+
+            IsFixedUpdating = true;
+            FixedUpdateMainState();
+            FixedUpdatePopStates();
+            IsFixedUpdating = false;
+        }
+
+        public virtual void LateUpdate(StateMachine<T> machine, T subject)
+        {
+            SelfDiagnosticOnUpdate();
+
+            if (UpdatePaused) return;
+            if (Subject == null) throw new System.NullReferenceException("Target is null.");
+
+            IsLateUpdating = true;
+            LateUpdateMainState();
+            LateUpdatePopStates();
+            IsLateUpdating = false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected void FixedUpdateMainState()
+        {
+            if (CurrentState is not NoOpState)
+            {
+                if (CurrentState == null) throw new System.NullReferenceException("CurrentState is null. Did you set a state after instantiate this controller?");
+                else CurrentState.FixedUpdate(this, Subject);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected void FixedUpdatePopStates()
+        {
+            if (PopupStates != null)
+                foreach (var ps in PopupStates) ps.FixedUpdate(this, Subject);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected void LateUpdateMainState()
+        {
+            if (CurrentState is not NoOpState)
+            {
+                if (CurrentState == null) throw new System.NullReferenceException("CurrentState is null. Did you set a state after instantiate this controller?");
+                else CurrentState.LateUpdate(this, Subject);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected void LateUpdatePopStates()
+        {
+            if (PopupStates != null)
+                foreach (var ps in PopupStates) ps.LateUpdate(this, Subject);
+        }
+#endif
+
+        protected virtual void SelfDiagnosticOnUpdate ()
+        {
+            if (stateChangingDepth > 0)
+                throw new Exception("State change is not properly finished. Is there an exception?");
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -238,15 +351,41 @@ namespace BAStudio.StatePattern
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected void UpdatePopStates()
+        protected void UpdatePopupStates()
         {
-            if (PopupStates != null)
-                foreach (var ps in PopupStates) ps.Update(this, Subject);
+            if (PopupStates == null)
+                return;
+            
+            foreach (var ps in PopupStates)
+                ps.Update(this, Subject);
+
+            if (PopupStatesToEnd != null)
+            {
+                foreach (var ps in PopupStatesToEnd)
+                    PopupStates.Remove(ps);
+                PopupStatesToEnd.Clear();
+            }
         }
 
         public virtual bool SendEvent<E>(E ev)
         {
-            if (debugOutput != null && CurrentState != null) LogFormat("A StateMachine<{0}> is invoking {1}, the active state (receiver) is {2}", Subject.GetType().Name, CurrentState?.GetType()?.Name, ev.GetType().Name);
+            if (debugOutput != null && (DebugFlags & DebugFlag_Event) != 0 && CurrentState != null)
+                LogFormat("A StateMachine<{0}> is sending event {1} to {2}",
+                          Subject!.GetType().Name,
+                          ev.GetType().Name,
+                          CurrentState?.GetType()?.Name);
+
+            SendEventToCurrentState(ev);
+            SendEventToPopupStates(ev);
+
+            return true;
+        }
+
+        public virtual bool SendEvent<S, E>(E ev, bool shouldThrow) where S : StateMachine<T>.State
+        {
+            if (CurrentState is not S)
+                if (shouldThrow) throw new Exception($"Event sender expected {typeof(S)}, but current state is {CurrentState.GetType().Name}.");
+                else return false;
 
             SendEventToCurrentState(ev);
             SendEventToPopupStates(ev);
@@ -259,6 +398,8 @@ namespace BAStudio.StatePattern
         {
             if (CurrentState is IEventReceiverState<T, E> ers)
                 ers.ReceiveEvent(this, Subject, ev);
+            else if (CurrentState is IEventReceiverState<E> ers2)
+                ers2.ReceiveEvent(ev);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -267,49 +408,52 @@ namespace BAStudio.StatePattern
             if (PopupStates != null)
                 foreach (var ps in PopupStates)
                     if (ps is IEventReceiverState<T, E> ers) ers.ReceiveEvent(this, Subject, ev);
+                    else if (ps is IEventReceiverState<E> ers2) ers2.ReceiveEvent(ev);
         }
 
         protected virtual void Log(string content)
         {
-            if (debugOutput == null) return;
-            debugOutput(content);
+            // if (debugOutput == null) return;
+            // debugOutput(content);
+            debugOutput?.Invoke(content, null);
         }
 
-        protected virtual void LogFormat(string format, object arg0)
+        protected virtual void LogFormat(string format, params object[] args)
         {
-            if (debugOutput == null) return;
-            if (DebugStringBuilder == null) DebugStringBuilder = new StringBuilder();
-            DebugStringBuilder.AppendFormat(format, arg0);
-            debugOutput(DebugStringBuilder.ToString());
-            DebugStringBuilder.Clear();
+            // if (debugOutput == null) return;
+            // if (DebugStringBuilder == null) DebugStringBuilder = new StringBuilder();
+            // DebugStringBuilder.AppendFormat(format, arg0);
+            // debugOutput(DebugStringBuilder.ToString());
+            // DebugStringBuilder.Clear();
+            debugOutput?.Invoke(string.Format(format, args), args);
         }
 
-        protected virtual void LogFormat(string format, object arg0, object arg1)
-        {
-            if (debugOutput == null) return;
-            if (DebugStringBuilder == null) DebugStringBuilder = new StringBuilder();
-            DebugStringBuilder.AppendFormat(format, arg0, arg1);
-            debugOutput(DebugStringBuilder.ToString());
-            DebugStringBuilder.Clear();
-        }
+        // protected virtual void LogFormat(string format, object arg0, object arg1)
+        // {
+        //     // if (debugOutput == null) return;
+        //     // if (DebugStringBuilder == null) DebugStringBuilder = new StringBuilder();
+        //     // DebugStringBuilder.AppendFormat(format, arg0, arg1);
+        //     // debugOutput(DebugStringBuilder.ToString());
+        //     // DebugStringBuilder.Clear();
+        // }
 
-        protected virtual void LogFormat(string format, object arg0, object arg1, object arg2)
-        {
-            if (debugOutput == null) return;
-            if (DebugStringBuilder == null) DebugStringBuilder = new StringBuilder();
-            DebugStringBuilder.AppendFormat(format, arg0, arg1, arg2);
-            debugOutput(DebugStringBuilder.ToString());
-            DebugStringBuilder.Clear();
-        }
+        // protected virtual void LogFormat(string format, object arg0, object arg1, object arg2)
+        // {
+        //     // if (debugOutput == null) return;
+        //     // if (DebugStringBuilder == null) DebugStringBuilder = new StringBuilder();
+        //     // DebugStringBuilder.AppendFormat(format, arg0, arg1, arg2);
+        //     // debugOutput(DebugStringBuilder.ToString());
+        //     // DebugStringBuilder.Clear();
+        // }
 
-        protected virtual void LogFormat(string format, object arg0, object arg1, object arg2, object arg3)
-        {
-            if (debugOutput == null) return;
-            if (DebugStringBuilder == null) DebugStringBuilder = new StringBuilder();
-            DebugStringBuilder.AppendFormat(format, arg0, arg1, arg2, arg3);
-            debugOutput(DebugStringBuilder.ToString());
-            DebugStringBuilder.Clear();
-        }
+        // protected virtual void LogFormat(string format, object arg0, object arg1, object arg2, object arg3)
+        // {
+        //     // if (debugOutput == null) return;
+        //     // if (DebugStringBuilder == null) DebugStringBuilder = new StringBuilder();
+        //     // DebugStringBuilder.AppendFormat(format, arg0, arg1, arg2, arg3);
+        //     // debugOutput(DebugStringBuilder.ToString());
+        //     // DebugStringBuilder.Clear();
+        // }
     }
 
 }

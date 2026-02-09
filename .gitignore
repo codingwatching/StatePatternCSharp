@@ -1,2 +1,5 @@
 ﻿.vscode
 **.meta
+obj/
+bin/
+
