@@ -5,8 +5,8 @@ namespace BAStudio.StatePattern
         public struct SideTrackStateChangedEvent
         {
 			public TRACK track;
-            public State from, to;
-            public SideTrackStateChangedEvent(TRACK track, State from, State to)
+            public StateMachine<T>.IState from, to;
+            public SideTrackStateChangedEvent(TRACK track, StateMachine<T>.IState from, StateMachine<T>.IState to)
             {
                 this.track = track;
                 this.from = from;

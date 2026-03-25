@@ -1,6 +1,9 @@
 # Extract `IState` Interface from `StateMachine<T>.State`
 
-> **Status:** In Progress
+> **Status:** Complete
+> **Completed:** 2026-03-25
+> **Walkthrough:** `20260325-istate-extraction-walkthrough.md`
+> **Audit:** `20260325-istate-extraction-audit.md`
 > **Created:** 2026-03-12
 > **Author:** Claude (agent)
 > **Source:** `20260311-state-to-istate-interface-proposal.md` (Option A accepted)
@@ -264,7 +267,7 @@ public abstract class ObserverTransitionState<H, FROM, TO> : State, IObserver<H>
 // After:
 public abstract class ObserverTransitionState<H, FROM, TO> : IState, IObserver<H>
     where FROM : IState
-    where TO : IState, new()
+    where TO : class, IState, new()
 ```
 
 Method signature changes:
@@ -284,14 +287,14 @@ public void Update(StateMachine<T> machine, T subject)
 Key transformations:
 - `: State,` → `: IState,` (base type)
 - `where FROM : State` → `where FROM : IState`
-- `where TO : State, new()` → `where TO : IState, new()`
+- `where TO : State, new()` → `where TO : class, IState, new()` (`class` constraint added — `where TO : State` previously enforced reference-type-only, making `null` a valid default parameter; `where TO : IState` alone allows structs and breaks that guarantee)
 - Remove `override` from `OnEntered`, `OnLeaving`, `Update`
 - `State previous` → `IState previous`, `State next` → `IState next`
-- `Reset` is not overridden here (left abstract to subclasses) — with interface, subclasses still must implement it. No change needed since this class is abstract.
+- Add `public abstract void Reset()` — C# requires abstract classes to explicitly declare any unimplemented interface member as `abstract`; the compiler does not make them implicitly abstract (CS0535 is raised otherwise).
 
 **Rationale:** Same mechanical transformation. Generic constraints reference the type being renamed.
 
-**Verification:** Compiles. `ObserverTransitionState` still implements the full `IState` contract (abstract class can leave `Reset` unimplemented for subclasses).
+**Verification:** Compiles. `ObserverTransitionState` declares `Reset` abstract, leaving it for concrete subclasses to implement.
 
 **If this fails:** Revert via git.
 
@@ -435,7 +438,7 @@ public struct SideTrackStateChangedEvent
 
 ### Risks
 
-- **Abstract class with interface gap**: `ObserverTransitionState` is an abstract class implementing `IState`. It doesn't implement `Reset()`, leaving it for subclasses. This works because C# allows abstract classes to partially implement interfaces — the remaining members become implicitly abstract. No risk here, but worth noting for anyone reading the code.
+- **Abstract class with interface gap**: `ObserverTransitionState` is an abstract class implementing `IState`. It declares `Reset()` as `abstract`, leaving it for concrete subclasses. C# does **not** make unimplemented interface members implicitly abstract — the compiler raises CS0535 if they are not explicitly declared. The `class` constraint on `TO` is also required: `where TO : State` previously enforced reference-type-only (making `null` a valid default parameter); `where TO : IState` alone allows structs and must be explicitly constrained with `class`.
 
 ### Open Questions
 

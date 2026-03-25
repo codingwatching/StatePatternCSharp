@@ -2,12 +2,12 @@ namespace BAStudio.StatePattern
 {
     public partial class StateMachine<T>
     {
-        public sealed class NoOpState : State
+        public sealed class NoOpState : IState
 		{
-			public override void OnEntered(StateMachine<T> machine, State previous, T subject, object parameter = null) {}
-			public override void Update(StateMachine<T> machine, T subject) {}
-			public override void OnLeaving(StateMachine<T> machine, State next, T subject, object parameter = null) {}
-            public override void Reset() {}
+			public void OnEntered(StateMachine<T> machine, IState previous, T subject, object parameter = null) {}
+			public void Update(StateMachine<T> machine, T subject) {}
+			public void OnLeaving(StateMachine<T> machine, IState next, T subject, object parameter = null) {}
+            public void Reset() {}
 		}
     }
 }

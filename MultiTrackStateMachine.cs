@@ -21,20 +21,20 @@ namespace BAStudio.StatePattern
 			var minMax = EnumExtension.MinMaxInt<TRACK>();
 			if (minMax.min < 0) throw new ArgumentOutOfRangeException("The first value of the enum must be bigger then zero");
 			if (minMax.max > 8) LogFormat("The TRACK enum has a max underlying value of {0}, internally a State[{0}] is being created, are you sure about this?", minMax.max);
-			SideTracks = new State[minMax.max + 1];
+			SideTracks = new IState[minMax.max + 1];
         }
 
-		public State[] SideTracks { get; protected set; }
-        public event Action<TRACK, State, State> OnSideTrackStateChanging;
-        public event Action<TRACK, State, State> OnSideTrackStateChanged;
-        protected Dictionary<(TRACK, Type), State> AutoSideTrackStateCache { get; set; }
+		public IState[] SideTracks { get; protected set; }
+        public event Action<TRACK, IState, IState> OnSideTrackStateChanging;
+        public event Action<TRACK, IState, IState> OnSideTrackStateChanged;
+        protected Dictionary<(TRACK, Type), IState> AutoSideTrackStateCache { get; set; }
 
 		/// <summary>
 		/// <para>Change the state to the provide instance, with parameter supplied.</para>
 		/// <para>It is recommended to use the generic version instead.</para>
 		/// <para>However, this could be useful in situations like state instances carry different data, or a non-stateful state is shared by massive amount of StateMachines.</para>
 		/// </summary>
-        public virtual void ChangeSideTrackState(TRACK track, State state, object parameter = null)
+        public virtual void ChangeSideTrackState(TRACK track, IState state, object parameter = null)
         {
             int tId = track.AsInt32();
             var prev = SideTracks[tId];
@@ -49,22 +49,22 @@ namespace BAStudio.StatePattern
 		/// <para>Change the state to the specified type, with parameter supplied.</para>
 		/// <para>The StateMachine automatically manages and keeps the state objects used.</para>
 		/// </summary>
-        public virtual void ChangeSideTrackState<S>(TRACK track, object parameter = null) where S : State, new()
+        public virtual void ChangeSideTrackState<S>(TRACK track, object parameter = null) where S : IState, new()
 		{
-			if (AutoSideTrackStateCache == null) AutoSideTrackStateCache = new Dictionary<(TRACK, Type), State>();
+			if (AutoSideTrackStateCache == null) AutoSideTrackStateCache = new Dictionary<(TRACK, Type), IState>();
             (TRACK track, Type) key = (track, typeof(S));
             if (!AutoSideTrackStateCache.ContainsKey(key)) AutoSideTrackStateCache.Add(key, new S());
 			ChangeSideTrackState(track, AutoSideTrackStateCache[key], parameter);
 		}
 
-		protected virtual void PreSideTrackStateChange (State fromState, State toState, TRACK sideTrack)
+		protected virtual void PreSideTrackStateChange (IState fromState, IState toState, TRACK sideTrack)
 		{
 			if (debugOutput != null && (DebugFlags & DebugFlag_StateChange) != 0) LogFormat("A StateMachine<{0}> is switching SIDETRACK#{3} from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, toState.GetType().Name, sideTrack);
 			fromState?.OnLeaving(this, toState, Subject);
 			OnSideTrackStateChanging?.Invoke(sideTrack, fromState, toState);
 		}
 
-		protected virtual void PostSideTrackStateChange (State fromState, State toState, TRACK sideTrack)
+		protected virtual void PostSideTrackStateChange (IState fromState, IState toState, TRACK sideTrack)
 		{
 			if (debugOutput != null && (DebugFlags & DebugFlag_StateChange) != 0) LogFormat("A MultiTrackStateMachine<{0}> has switched SIDETRACK#{3} from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, toState.GetType().Name, sideTrack);
 			SendEvent(new SideTrackStateChangedEvent(sideTrack, fromState, toState));

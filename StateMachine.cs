@@ -25,7 +25,7 @@ namespace BAStudio.StatePattern
             UpdatePaused = false;
         }
         public T Subject { get; }
-        public State CurrentState { get; protected set; }
+        public IState CurrentState { get; protected set; }
 
         private bool updatePaused;
         /// <summary>
@@ -48,9 +48,9 @@ namespace BAStudio.StatePattern
         /// <para> Enable this to skip DI if you make sure all needed components are already provided via SetComponent.</para>
         /// </summary>
         public bool DeliverOnlyOnceForCachedStates { get; set; } = false;
-        public event Action<State, State> OnStateChanging;
-        public event Action<State, State> OnStateChanged;
-        protected Dictionary<Type, State> AutoStateCache { get; set; }
+        public event Action<IState, IState> OnStateChanging;
+        public event Action<IState, IState> OnStateChanged;
+        protected Dictionary<Type, IState> AutoStateCache { get; set; }
         protected List<IPopupState> PopupStates { get; set; }
         protected List<IPopupState> PopupStatesToEnd { get; set; }
         public event Action<IPopupState> PopupStateStarted;
@@ -121,7 +121,7 @@ namespace BAStudio.StatePattern
         /// <para>It is recommended to use the generic version instead, internal cached states will be used.</para>
         /// <para>However, this could be useful in situations like state instances carry different data, or a non-stateful state is shared by massive amount of StateMachines.</para>
         /// </summary>
-        public virtual void ChangeState(State state, object parameter = null)
+        public virtual void ChangeState(IState state, object parameter = null)
         {
             PreStateChange(CurrentState, state, parameter);
             var prev = CurrentState;
@@ -137,9 +137,9 @@ namespace BAStudio.StatePattern
         /// <para>Change the state to the specified type, with parameter supplied.</para>
         /// <para>The StateMachine automatically manages and keeps the state objects used.</para>
         /// </summary>
-        public virtual void ChangeState<S>(object parameter = null) where S : State, new()
+        public virtual void ChangeState<S>(object parameter = null) where S : IState, new()
         {
-            if (AutoStateCache == null) AutoStateCache = new Dictionary<Type, State>();
+            if (AutoStateCache == null) AutoStateCache = new Dictionary<Type, IState>();
             if (!AutoStateCache.ContainsKey(typeof(S)))
             {
                 S newS = new S();
@@ -163,7 +163,7 @@ namespace BAStudio.StatePattern
         /// If the state is an IComponentUser, this walks through all properties and try to fill in with type-matching components provided.
         /// </summary>
         /// <param name="state"></param>
-        protected virtual void DeliverComponents(State state)
+        protected virtual void DeliverComponents(IState state)
         {
             if (state is IComponentUser cu)
             {
@@ -222,7 +222,7 @@ namespace BAStudio.StatePattern
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual void PreStateChange(State fromState, State toState, object parameter = null)
+        protected virtual void PreStateChange(IState fromState, IState toState, object parameter = null)
         {
             if (debugOutput != null && (DebugFlags & DebugFlag_StateChange) != 0) LogFormat("A StateMachine<{0}> is switching from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, toState.GetType().Name);
 
@@ -233,7 +233,7 @@ namespace BAStudio.StatePattern
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual void PostStateChange(State fromState)
+        protected virtual void PostStateChange(IState fromState)
         {
             if (debugOutput != null && (DebugFlags & DebugFlag_StateChange) != 0)
                 LogFormat("A StateMachine<{0}> has switched from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, CurrentState.GetType().Name);
@@ -249,10 +249,10 @@ namespace BAStudio.StatePattern
         /// </summary>
         /// <param name="state"></param>
         /// <typeparam name="S"></typeparam>
-        public void Cache<S> (S state) where S : State
+        public void Cache<S> (S state) where S : IState
         {
             if (DeliverOnlyOnceForCachedStates) DeliverComponents(state);
-            if (AutoStateCache == null) AutoStateCache = new Dictionary<Type, State>();
+            if (AutoStateCache == null) AutoStateCache = new Dictionary<Type, IState>();
             AutoStateCache[typeof(S)] = state;
         }
 
@@ -381,7 +381,7 @@ namespace BAStudio.StatePattern
             return true;
         }
 
-        public virtual bool SendEvent<S, E>(E ev, bool shouldThrow) where S : StateMachine<T>.State
+        public virtual bool SendEvent<S, E>(E ev, bool shouldThrow) where S : StateMachine<T>.IState
         {
             if (CurrentState is not S)
                 if (shouldThrow) throw new Exception($"Event sender expected {typeof(S)}, but current state is {CurrentState.GetType().Name}.");
