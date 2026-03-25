@@ -1,6 +1,6 @@
 # Extract `IState` Interface from `StateMachine<T>.State`
 
-> **Status:** Ready
+> **Status:** In Progress
 > **Created:** 2026-03-12
 > **Author:** Claude (agent)
 > **Source:** `20260311-state-to-istate-interface-proposal.md` (Option A accepted)
