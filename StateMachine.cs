@@ -48,6 +48,7 @@ namespace BAStudio.StatePattern
         /// <para> Enable this to skip DI if you make sure all needed components are already provided via SetComponent.</para>
         /// </summary>
         public bool DeliverOnlyOnceForCachedStates { get; set; } = false;
+        public IStateResolver StateResolver { get; set; } = ActivatorStateResolver.Instance;
         public event Action<IState, IState> OnStateChanging;
         public event Action<IState, IState> OnStateChanged;
         protected Dictionary<Type, IState> AutoStateCache { get; set; }
@@ -137,18 +138,17 @@ namespace BAStudio.StatePattern
         /// <para>Change the state to the specified type, with parameter supplied.</para>
         /// <para>The StateMachine automatically manages and keeps the state objects used.</para>
         /// </summary>
-        public virtual void ChangeState<S>(object parameter = null) where S : IState, new()
+        public virtual void ChangeState<S>(object parameter = null) where S : IState
         {
             if (AutoStateCache == null) AutoStateCache = new Dictionary<Type, IState>();
-            if (!AutoStateCache.ContainsKey(typeof(S)))
+            if (!AutoStateCache.TryGetValue(typeof(S), out var state))
             {
-                S newS = new S();
-                AutoStateCache.Add(typeof(S), newS);
-                if (DeliverOnlyOnceForCachedStates) DeliverComponents(newS);
+                state = (IState) StateResolver.Resolve(typeof(S));
+                AutoStateCache.Add(typeof(S), state);
+                if (DeliverOnlyOnceForCachedStates) DeliverComponents(state);
             }
 
             var prev = CurrentState;
-            var state = AutoStateCache[typeof(S)];
             PreStateChange(CurrentState, state, parameter);
             CurrentState = state;
             if (!DeliverOnlyOnceForCachedStates)
@@ -254,6 +254,17 @@ namespace BAStudio.StatePattern
             if (DeliverOnlyOnceForCachedStates) DeliverComponents(state);
             if (AutoStateCache == null) AutoStateCache = new Dictionary<Type, IState>();
             AutoStateCache[typeof(S)] = state;
+        }
+
+        /// <summary>
+        /// Cache the provided state instance, keyed by its runtime type.
+        /// Useful when the compile-time type is not known (e.g., auto-discovered MonoBehaviour states).
+        /// </summary>
+        public void CacheByType(IState state)
+        {
+            if (AutoStateCache == null) AutoStateCache = new Dictionary<Type, IState>();
+            AutoStateCache[state.GetType()] = state;
+            if (DeliverOnlyOnceForCachedStates) DeliverComponents(state);
         }
 
         public virtual void Update()

@@ -4,7 +4,7 @@ namespace BAStudio.StatePattern
 {
     public partial class StateMachine<T>
     {
-        public abstract class ObserverTransitionState<H, FROM, TO> : IState, IObserver<H> where FROM : IState where TO : class, IState, new()
+        public abstract class ObserverTransitionState<H, FROM, TO> : IState, IObserver<H> where FROM : IState where TO : class, IState
         {
             IDisposable? handle;
             private readonly IObservable<H>? observable;

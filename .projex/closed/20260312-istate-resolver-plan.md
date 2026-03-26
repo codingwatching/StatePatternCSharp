@@ -1,6 +1,8 @@
 # IStateResolver & ChangeState\<S\> Parity
 
-> **Status:** In Progress
+> **Status:** Complete
+> **Completed:** 2026-03-26
+> **Walkthrough:** `2603261130-istate-resolver-plan-walkthrough.md`
 > **Created:** 2026-03-12
 > **Author:** Claude (agent)
 > **Source:** `20260311-serializable-states-and-changestate-parity-proposal.md` (Option B accepted)

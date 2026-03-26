@@ -49,12 +49,16 @@ namespace BAStudio.StatePattern
 		/// <para>Change the state to the specified type, with parameter supplied.</para>
 		/// <para>The StateMachine automatically manages and keeps the state objects used.</para>
 		/// </summary>
-        public virtual void ChangeSideTrackState<S>(TRACK track, object parameter = null) where S : IState, new()
+        public virtual void ChangeSideTrackState<S>(TRACK track, object parameter = null) where S : IState
 		{
 			if (AutoSideTrackStateCache == null) AutoSideTrackStateCache = new Dictionary<(TRACK, Type), IState>();
             (TRACK track, Type) key = (track, typeof(S));
-            if (!AutoSideTrackStateCache.ContainsKey(key)) AutoSideTrackStateCache.Add(key, new S());
-			ChangeSideTrackState(track, AutoSideTrackStateCache[key], parameter);
+            if (!AutoSideTrackStateCache.TryGetValue(key, out var state))
+            {
+                state = (IState) StateResolver.Resolve(typeof(S));
+                AutoSideTrackStateCache.Add(key, state);
+            }
+			ChangeSideTrackState(track, state, parameter);
 		}
 
 		protected virtual void PreSideTrackStateChange (IState fromState, IState toState, TRACK sideTrack)
