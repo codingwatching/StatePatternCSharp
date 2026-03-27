@@ -1,6 +1,6 @@
 # MonoBehaviourStateMachine\<T\> Wrapper
 
-> **Status:** Ready
+> **Status:** In Progress
 > **Created:** 2026-03-12
 > **Author:** Claude (agent)
 > **Source:** `20260311-monobehaviour-statemachine-proposal.md` (Option A accepted)
