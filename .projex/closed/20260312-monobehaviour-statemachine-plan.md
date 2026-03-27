@@ -1,11 +1,13 @@
 # MonoBehaviourStateMachine\<T\> Wrapper
 
-> **Status:** In Progress
+> **Status:** Complete
 > **Created:** 2026-03-12
 > **Author:** Claude (agent)
 > **Source:** `20260311-monobehaviour-statemachine-proposal.md` (Option A accepted)
 > **Related Projex:** `20260312-istate-extraction-plan.md` (prerequisite), `20260312-istate-resolver-plan.md` (prerequisite), `2603272256-monobehaviour-statemachine-plan-redteam.md` (red team), `2603281200-noopstate-default-plan.md` (prerequisite — core NoOpState default)
 > **Worktree:** No
+> **Completed:** 2026-03-28
+> **Walkthrough:** `20260312-monobehaviour-statemachine-walkthrough.md`
 
 ---
 
