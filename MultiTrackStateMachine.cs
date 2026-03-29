@@ -16,69 +16,71 @@ namespace BAStudio.StatePattern
     {
         public MultiTrackStateMachine(T target) : base(target)
         {
-			if (System.Enum.GetUnderlyingType(typeof(TRACK)) != typeof(int))
-				throw new ArgumentOutOfRangeException("The underlying type of the Enum must be int");
-			var minMax = EnumExtension.MinMaxInt<TRACK>();
-			if (minMax.min < 0) throw new ArgumentOutOfRangeException("The first value of the enum must be bigger then zero");
-			if (minMax.max > 8) LogFormat("The TRACK enum has a max underlying value of {0}, internally a State[{0}] is being created, are you sure about this?", minMax.max);
-			SideTracks = new IState<T>[minMax.max + 1];
+            if (System.Enum.GetUnderlyingType(typeof(TRACK)) != typeof(int))
+                throw new ArgumentOutOfRangeException("The underlying type of the Enum must be int");
+            var minMax = EnumExtension.MinMaxInt<TRACK>();
+            if (minMax.min < 0) throw new ArgumentOutOfRangeException("The first value of the enum must be bigger then zero");
+            if (minMax.max > 8) LogFormat("The TRACK enum has a max underlying value of {0}, internally a State[{0}] is being created, are you sure about this?", minMax.max);
+            SideTracks = new IState<T>[minMax.max + 1];
+            for (int i = 0; i < SideTracks.Length; i++)
+                SideTracks[i] = new NoOpState();
         }
 
-		public IState<T>[] SideTracks { get; protected set; }
+        public IState<T>[] SideTracks { get; protected set; }
         public event Action<TRACK, IState<T>, IState<T>> OnSideTrackStateChanging;
         public event Action<TRACK, IState<T>, IState<T>> OnSideTrackStateChanged;
         protected Dictionary<(TRACK, Type), IState<T>> AutoSideTrackStateCache { get; set; }
 
-		/// <summary>
-		/// <para>Change the state to the provide instance, with parameter supplied.</para>
-		/// <para>It is recommended to use the generic version instead.</para>
-		/// <para>However, this could be useful in situations like state instances carry different data, or a non-stateful state is shared by massive amount of StateMachines.</para>
-		/// </summary>
+        /// <summary>
+        /// <para>Change the state to the provide instance, with parameter supplied.</para>
+        /// <para>It is recommended to use the generic version instead.</para>
+        /// <para>However, this could be useful in situations like state instances carry different data, or a non-stateful state is shared by massive amount of StateMachines.</para>
+        /// </summary>
         public virtual void ChangeSideTrackState(TRACK track, IState<T> state, object parameter = null)
         {
             int tId = track.AsInt32();
             var prev = SideTracks[tId];
-			PreSideTrackStateChange(prev, state, track);
-			SideTracks[tId] = state;
-			DeliverComponents(state);
-			state.OnEntered(this, prev, Subject, parameter);
-			PostSideTrackStateChange(prev, state, track);
+            PreSideTrackStateChange(prev, state, track);
+            SideTracks[tId] = state;
+            DeliverComponents(state);
+            state.OnEntered(this, prev, Subject, parameter);
+            PostSideTrackStateChange(prev, state, track);
         }
 
-		/// <summary>
-		/// <para>Change the state to the specified type, with parameter supplied.</para>
-		/// <para>The StateMachine automatically manages and keeps the state objects used.</para>
-		/// </summary>
+        /// <summary>
+        /// <para>Change the state to the specified type, with parameter supplied.</para>
+        /// <para>The StateMachine automatically manages and keeps the state objects used.</para>
+        /// </summary>
         public virtual void ChangeSideTrackState<S>(TRACK track, object parameter = null) where S : IState<T>
-		{
-			if (AutoSideTrackStateCache == null) AutoSideTrackStateCache = new Dictionary<(TRACK, Type), IState<T>>();
+        {
+            if (AutoSideTrackStateCache == null) AutoSideTrackStateCache = new Dictionary<(TRACK, Type), IState<T>>();
             (TRACK track, Type) key = (track, typeof(S));
             if (!AutoSideTrackStateCache.TryGetValue(key, out var state))
             {
-                state = (IState<T>) StateResolver.Resolve(typeof(S));
+                state = (IState<T>)StateResolver.Resolve(typeof(S));
                 AutoSideTrackStateCache.Add(key, state);
             }
-			ChangeSideTrackState(track, state, parameter);
-		}
+            ChangeSideTrackState(track, state, parameter);
+        }
 
-		protected virtual void PreSideTrackStateChange (IState<T> fromState, IState<T> toState, TRACK sideTrack)
-		{
-			if (debugOutput != null && (DebugFlags & DebugFlag_StateChange) != 0) LogFormat("A StateMachine<{0}> is switching SIDETRACK#{3} from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, toState.GetType().Name, sideTrack);
-			fromState?.OnLeaving(this, toState, Subject);
-			OnSideTrackStateChanging?.Invoke(sideTrack, fromState, toState);
-		}
+        protected virtual void PreSideTrackStateChange(IState<T> fromState, IState<T> toState, TRACK sideTrack)
+        {
+            if (debugOutput != null && (DebugFlags & DebugFlag_StateChange) != 0) LogFormat("A StateMachine<{0}> is switching SIDETRACK#{3} from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, toState.GetType().Name, sideTrack);
+            fromState?.OnLeaving(this, toState, Subject);
+            OnSideTrackStateChanging?.Invoke(sideTrack, fromState, toState);
+        }
 
-		protected virtual void PostSideTrackStateChange (IState<T> fromState, IState<T> toState, TRACK sideTrack)
-		{
-			if (debugOutput != null && (DebugFlags & DebugFlag_StateChange) != 0) LogFormat("A MultiTrackStateMachine<{0}> has switched SIDETRACK#{3} from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, toState.GetType().Name, sideTrack);
-			SendEvent(new SideTrackStateChangedEvent(sideTrack, fromState, toState));
-			OnSideTrackStateChanged?.Invoke(sideTrack, fromState, toState);
+        protected virtual void PostSideTrackStateChange(IState<T> fromState, IState<T> toState, TRACK sideTrack)
+        {
+            if (debugOutput != null && (DebugFlags & DebugFlag_StateChange) != 0) LogFormat("A MultiTrackStateMachine<{0}> has switched SIDETRACK#{3} from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, toState.GetType().Name, sideTrack);
+            SendEvent(new SideTrackStateChangedEvent(sideTrack, fromState, toState));
+            OnSideTrackStateChanged?.Invoke(sideTrack, fromState, toState);
 
-			fromState?.Reset();
-		}
+            fromState?.Reset();
+        }
 
-		public override void Update ()
-		{
+        public override void Update()
+        {
             SelfDiagnosticOnUpdate();
 
             if (UpdatePaused) return;
@@ -86,38 +88,38 @@ namespace BAStudio.StatePattern
 
             IsUpdating = true;
             UpdateMainState();
-			UpdateSideTracks();
+            UpdateSideTracks();
             UpdatePopupStates();
             IsUpdating = false;
-		}
+        }
 
-		protected void UpdateSideTracks ()
-		{
-			for (int i = 0; i < SideTracks.Length; i++)
-			if (SideTracks[i] is not NoOpState)
-			{
-				if (SideTracks[i] == null)
-					throw new System.NullReferenceException($"SideTrack#{i} is null. Did you set a state after instantiate this controller?");
-				else SideTracks[i].Update(this, Subject);
-			}
-		}
-
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		protected void SendEventToSideTracks <E> (E ev)
-		{
-			for (int i = 0; i < SideTracks?.Length; i++)
-				if (SideTracks[i] is IEventReceiverState<T, E> ers) ers.ReceiveEvent(this, Subject, ev);
-		}
-
-        public override bool SendEvent<E> (E ev)
+        protected void UpdateSideTracks()
         {
-			if (debugOutput != null && (DebugFlags & DebugFlag_Event) != 0) LogFormat("A MultiTrackStateMachine<{0}> is invoking {1}, the active state (receiver) is {2}", Subject.GetType().Name, CurrentState?.GetType()?.Name, ev.GetType().Name);
+            for (int i = 0; i < SideTracks.Length; i++)
+                if (SideTracks[i] is not NoOpState)
+                {
+                    if (SideTracks[i] == null)
+                        throw new System.NullReferenceException($"SideTrack#{i} is null. Did you set a state after instantiate this controller?");
+                    else SideTracks[i].Update(this, Subject);
+                }
+        }
 
-			SendEventToCurrentState(ev);
-			SendEventToSideTracks(ev);
-			SendEventToPopupStates(ev);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected void SendEventToSideTracks<E>(E ev)
+        {
+            for (int i = 0; i < SideTracks?.Length; i++)
+                if (SideTracks[i] is IEventReceiverState<T, E> ers) ers.ReceiveEvent(this, Subject, ev);
+        }
 
-			return true;
+        public override bool SendEvent<E>(E ev)
+        {
+            if (debugOutput != null && (DebugFlags & DebugFlag_Event) != 0) LogFormat("A MultiTrackStateMachine<{0}> is invoking {1}, the active state (receiver) is {2}", Subject.GetType().Name, CurrentState?.GetType()?.Name, ev.GetType().Name);
+
+            SendEventToCurrentState(ev);
+            SendEventToSideTracks(ev);
+            SendEventToPopupStates(ev);
+
+            return true;
         }
     }
 }

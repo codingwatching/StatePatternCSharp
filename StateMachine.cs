@@ -22,6 +22,7 @@ namespace BAStudio.StatePattern
         public StateMachine(T subject)
         {
             Subject = subject;
+            CurrentState = new NoOpState();
             UpdatePaused = false;
         }
         public T Subject { get; }
@@ -33,14 +34,14 @@ namespace BAStudio.StatePattern
         /// <para>This is recommended over not calling Update() because states can check on this and know it's not getting Update().</para>
         /// </summary>
         public virtual bool UpdatePaused
-		{
-			get => updatePaused;
-			set
-			{
-				updatePaused = value;
-				SendEvent(value? InternalSignal.MachinePaused : InternalSignal.MachineResumed);
-			}
-		}
+        {
+            get => updatePaused;
+            set
+            {
+                updatePaused = value;
+                SendEvent(value ? InternalSignal.MachinePaused : InternalSignal.MachineResumed);
+            }
+        }
 
         /// <summary>
         /// <para> Optimization flag.</para>
@@ -70,7 +71,7 @@ namespace BAStudio.StatePattern
                 throw new Exception("PopupState already added");
             PopupStates.Add(s);
             s.OnStarting(this, Subject, parameter);
-			SendEvent(new NewPopupStateEvent(s));
+            SendEvent(new NewPopupStateEvent(s));
             PopupStateStarted?.Invoke(s);
         }
 
@@ -86,7 +87,7 @@ namespace BAStudio.StatePattern
                 throw new Exception("PopupState already added");
             PopupStates.Add(s);
             s.OnStarting(this, Subject, parameter);
-			SendEvent(new NewPopupStateEvent(s));
+            SendEvent(new NewPopupStateEvent(s));
             PopupStateStarted?.Invoke(s);
             return s;
         }
@@ -97,7 +98,7 @@ namespace BAStudio.StatePattern
 
             s.OnEnding(this, Subject, parameter);
             PopupStateEnded?.Invoke(s);
-			SendEvent(new PopupStateEndedEvent(s));
+            SendEvent(new PopupStateEndedEvent(s));
             if (IsUpdating)
             {
                 PopupStatesToEnd.Add(s);
@@ -105,7 +106,7 @@ namespace BAStudio.StatePattern
             }
             PopupStates.Remove(s);
         }
-        public IReadOnlyCollection<IPopupState<T>>? ViewPopupStates ()
+        public IReadOnlyCollection<IPopupState<T>>? ViewPopupStates()
         {
             return PopupStates?.AsReadOnly();
         }
@@ -143,7 +144,7 @@ namespace BAStudio.StatePattern
             if (AutoStateCache == null) AutoStateCache = new Dictionary<Type, IState<T>>();
             if (!AutoStateCache.TryGetValue(typeof(S), out var state))
             {
-                state = (IState<T>) StateResolver.Resolve(typeof(S));
+                state = (IState<T>)StateResolver.Resolve(typeof(S));
                 AutoStateCache.Add(typeof(S), state);
                 if (DeliverOnlyOnceForCachedStates) DeliverComponents(state);
             }
@@ -193,14 +194,14 @@ namespace BAStudio.StatePattern
                                                           .Where(
                                                             pi => pi.GetCustomAttribute(typeof(AutoComponentAttribute), false) != null
                                                           ).ToArray();
-                    if (queried .Length == 0) PropInfoMap[stateType] = null;
+                    if (queried.Length == 0) PropInfoMap[stateType] = null;
                     else
                     {
                         allPropInfos = queried;
                         PropInfoMap[stateType] = allPropInfos;
                     }
                 }
-                
+
                 if (allPropInfos == null)
                 {
                     foreach (var kvp in Components)
@@ -237,7 +238,7 @@ namespace BAStudio.StatePattern
         {
             if (debugOutput != null && (DebugFlags & DebugFlag_StateChange) != 0)
                 LogFormat("A StateMachine<{0}> has switched from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, CurrentState.GetType().Name);
-			SendEvent(new MainStateChangedEvent(fromState, CurrentState));
+            SendEvent(new MainStateChangedEvent(fromState, CurrentState));
             OnStateChanged?.Invoke(fromState, CurrentState);
 
             stateChangingDepth--;
@@ -249,7 +250,7 @@ namespace BAStudio.StatePattern
         /// </summary>
         /// <param name="state"></param>
         /// <typeparam name="S"></typeparam>
-        public void Cache<S> (S state) where S : IState<T>
+        public void Cache<S>(S state) where S : IState<T>
         {
             if (DeliverOnlyOnceForCachedStates) DeliverComponents(state);
             if (AutoStateCache == null) AutoStateCache = new Dictionary<Type, IState<T>>();
@@ -345,7 +346,7 @@ namespace BAStudio.StatePattern
         }
 #endif
 
-        protected virtual void SelfDiagnosticOnUpdate ()
+        protected virtual void SelfDiagnosticOnUpdate()
         {
             if (stateChangingDepth > 0)
                 throw new Exception("State change is not properly finished. Is there an exception?");
@@ -366,7 +367,7 @@ namespace BAStudio.StatePattern
         {
             if (PopupStates == null)
                 return;
-            
+
             foreach (var ps in PopupStates)
                 ps.Update(this, Subject);
 
