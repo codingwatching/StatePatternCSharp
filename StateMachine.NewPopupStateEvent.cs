@@ -4,9 +4,9 @@ namespace BAStudio.StatePattern
     {
         public struct NewPopupStateEvent
 		{
-			public IPopupState popupState;
+			public IPopupState<T> popupState;
 
-            public NewPopupStateEvent(IPopupState popupState)
+            public NewPopupStateEvent(IPopupState<T> popupState)
             {
                 this.popupState = popupState;
             }

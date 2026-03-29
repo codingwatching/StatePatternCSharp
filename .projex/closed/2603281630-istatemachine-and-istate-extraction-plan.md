@@ -1,6 +1,8 @@
 # IStateMachine Facade + IState<T> Extraction
 
-> **Status:** In Progress
+> **Status:** Complete
+> **Completed:** 2026-03-29
+> **Walkthrough:** `2603281630-istatemachine-and-istate-extraction-walkthrough.md`
 > **Created:** 2026-03-28
 > **Author:** Claude (agent)
 > **Source:** `2603281600-statemachine-driver-interface-proposal.md` (Option C)

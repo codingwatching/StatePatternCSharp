@@ -4,9 +4,9 @@ namespace BAStudio.StatePattern
     {
         public struct MainStateChangedEvent
         {
-            public IState from, to;
+            public IState<T> from, to;
 
-            public MainStateChangedEvent(IState from, IState to)
+            public MainStateChangedEvent(IState<T> from, IState<T> to)
             {
                 this.from = from;
                 this.to = to;

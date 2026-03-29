@@ -10,7 +10,7 @@ namespace BAStudio.StatePattern
     {
         /// <summary>
         /// Create or retrieve a state instance for the given type.
-        /// The returned instance must implement IState for the machine's T.
+        /// The returned instance must implement IState&lt;T&gt; for the machine's T.
         /// </summary>
         object Resolve(Type stateType);
     }

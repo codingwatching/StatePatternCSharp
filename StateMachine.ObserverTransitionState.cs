@@ -4,7 +4,7 @@ namespace BAStudio.StatePattern
 {
     public partial class StateMachine<T>
     {
-        public abstract class ObserverTransitionState<H, FROM, TO> : IState, IObserver<H> where FROM : IState where TO : class, IState
+        public abstract class ObserverTransitionState<H, FROM, TO> : IState<T>, IObserver<H> where FROM : IState<T> where TO : class, IState<T>
         {
             IDisposable? handle;
             private readonly IObservable<H>? observable;
@@ -18,7 +18,7 @@ namespace BAStudio.StatePattern
                 this.parameter = parameter;
             }
 
-            public void OnEntered(StateMachine<T> machine, IState previous, T subject, object parameter = null)
+            public void OnEntered(IStateMachine<T> machine, IState<T> previous, T subject, object parameter = null)
             {
                 if (typeof(FROM) != previous.GetType()) throw new InvalidOperationException("Transition source state mismatch");
 
@@ -29,12 +29,12 @@ namespace BAStudio.StatePattern
                 handle = observable?.Subscribe(this);
             }
 
-            public void OnLeaving(StateMachine<T> machine, IState next, T subject, object parameter = null)
+            public void OnLeaving(IStateMachine<T> machine, IState<T> next, T subject, object parameter = null)
             {
                 handle!.Dispose();
             }
 
-            public void Update(StateMachine<T> machine, T subject)
+            public void Update(IStateMachine<T> machine, T subject)
             {
                 if (isCompleted)
                 {

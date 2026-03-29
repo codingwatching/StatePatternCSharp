@@ -12,7 +12,7 @@ namespace BAStudio.StatePattern
     public abstract class MonoBehaviourStateMachine<T> : MonoBehaviour
     {
         [Header("State Configuration")]
-        [Tooltip("ScriptableObject assets implementing StateMachine<T>.IState. Assign in the Inspector.")]
+        [Tooltip("ScriptableObject assets implementing IState<T>. Assign in the Inspector.")]
         [SerializeField] ScriptableObject[] scriptableObjectStates;
 
         List<UnityEngine.Object> clonedInstances;
@@ -52,7 +52,7 @@ namespace BAStudio.StatePattern
                 if (ReferenceEquals(component, this))
                     continue;
 
-                if (component is StateMachine<T>.IState state)
+                if (component is IState<T> state)
                     Machine.CacheByType(state);
             }
         }
@@ -68,11 +68,11 @@ namespace BAStudio.StatePattern
                 if (stateAsset == null)
                     continue;
 
-                if (stateAsset is not StateMachine<T>.IState)
+                if (stateAsset is not IState<T>)
                 {
                     Debug.LogWarning(
                         $"[{GetType().Name}] ScriptableObject '{stateAsset.name}' ({stateAsset.GetType().Name}) " +
-                        "does not implement StateMachine<T>.IState. Skipping.",
+                        "does not implement IState<T>. Skipping.",
                         this);
                     continue;
                 }
@@ -80,7 +80,7 @@ namespace BAStudio.StatePattern
                 ScriptableObject clone = Instantiate(stateAsset);
                 clone.name = stateAsset.name;
 
-                if (clone is StateMachine<T>.IState clonedState)
+                if (clone is IState<T> clonedState)
                 {
                     clonedInstances ??= new List<UnityEngine.Object>();
                     clonedInstances.Add(clone);
@@ -98,13 +98,13 @@ namespace BAStudio.StatePattern
         protected virtual void FixedUpdate()
         {
             EnsureMachineInitialized();
-            Machine.FixedUpdate(Machine, Machine.Subject);
+            Machine.FixedUpdate();
         }
 
         protected virtual void LateUpdate()
         {
             EnsureMachineInitialized();
-            Machine.LateUpdate(Machine, Machine.Subject);
+            Machine.LateUpdate();
         }
 
         protected virtual void OnDestroy()

@@ -5,17 +5,17 @@ namespace BAStudio.StatePattern
 {
     public partial class StateMachine<T>
     {
-        public abstract class TimedPopupState : IPopupState
+        public abstract class TimedPopupState : IPopupState<T>
         {
             public float endTime;
-            public abstract void OnEnding(StateMachine<T> machine, T subject, object parameter = null);
+            public abstract void OnEnding(IStateMachine<T> machine, T subject, object parameter = null);
 
-            public void OnStarting(StateMachine<T> machine, T subject, object parameter = null)
+            public void OnStarting(IStateMachine<T> machine, T subject, object parameter = null)
             {
                 endTime = (float) parameter;
             }
 
-            public void Update(StateMachine<T> machine, T subject)
+            public void Update(IStateMachine<T> machine, T subject)
             {
                 if (Time.time > endTime)
                     machine.EndPopupState(this);

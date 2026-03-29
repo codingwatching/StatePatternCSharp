@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace BAStudio.StatePattern
 {
-    public partial class StateMachine<T>
+    public partial class StateMachine<T> : IStateMachine<T>
     {
         protected System.Action<string, object[]> debugOutput;
         public event System.Action<string, object[]> DebugOutput { add => debugOutput += value; remove => debugOutput -= value; }
@@ -25,7 +25,7 @@ namespace BAStudio.StatePattern
             UpdatePaused = false;
         }
         public T Subject { get; }
-        public IState CurrentState { get; protected set; }
+        public IState<T> CurrentState { get; protected set; }
 
         private bool updatePaused;
         /// <summary>
@@ -49,23 +49,23 @@ namespace BAStudio.StatePattern
         /// </summary>
         public bool DeliverOnlyOnceForCachedStates { get; set; } = false;
         public IStateResolver StateResolver { get; set; } = ActivatorStateResolver.Instance;
-        public event Action<IState, IState> OnStateChanging;
-        public event Action<IState, IState> OnStateChanged;
-        protected Dictionary<Type, IState> AutoStateCache { get; set; }
-        protected List<IPopupState> PopupStates { get; set; }
-        protected List<IPopupState> PopupStatesToEnd { get; set; }
-        public event Action<IPopupState> PopupStateStarted;
-        public event Action<IPopupState> PopupStateEnded;
+        public event Action<IState<T>, IState<T>> OnStateChanging;
+        public event Action<IState<T>, IState<T>> OnStateChanged;
+        protected Dictionary<Type, IState<T>> AutoStateCache { get; set; }
+        protected List<IPopupState<T>> PopupStates { get; set; }
+        protected List<IPopupState<T>> PopupStatesToEnd { get; set; }
+        public event Action<IPopupState<T>> PopupStateStarted;
+        public event Action<IPopupState<T>> PopupStateEnded;
         Dictionary<Type, object> Components { get; set; }
         Dictionary<Type, bool> TypesDisabledAutoComponents { get; set; }
         Dictionary<Type, PropertyInfo[]?> PropInfoMap { get; set; }
         public bool IsUpdating { get; protected set; }
         public bool IsChangingState { get => stateChangingDepth > 0; }
         int stateChangingDepth;
-        public void Popup(IPopupState s, object parameter = null)
+        public void Popup(IPopupState<T> s, object parameter = null)
         {
             if (PopupStates == null)
-                PopupStates = new List<IPopupState>();
+                PopupStates = new List<IPopupState<T>>();
             if (PopupStates.Contains(s))
                 throw new Exception("PopupState already added");
             PopupStates.Add(s);
@@ -77,10 +77,10 @@ namespace BAStudio.StatePattern
         /// <summary>
         /// The new PopupState is returned so you can do something to it like Update() once immediately.
         /// </summary>
-        public S Popup<S>(object parameter = null) where S : IPopupState, new()
+        public S Popup<S>(object parameter = null) where S : IPopupState<T>, new()
         {
             if (PopupStates == null)
-                PopupStates = new List<IPopupState>();
+                PopupStates = new List<IPopupState<T>>();
             S s = new S();
             if (PopupStates.Contains(s))
                 throw new Exception("PopupState already added");
@@ -90,10 +90,10 @@ namespace BAStudio.StatePattern
             PopupStateStarted?.Invoke(s);
             return s;
         }
-        public void EndPopupState(IPopupState s, object parameter = null)
+        public void EndPopupState(IPopupState<T> s, object parameter = null)
         {
             if (PopupStatesToEnd == null)
-                PopupStatesToEnd = new List<IPopupState>();
+                PopupStatesToEnd = new List<IPopupState<T>>();
 
             s.OnEnding(this, Subject, parameter);
             PopupStateEnded?.Invoke(s);
@@ -105,7 +105,7 @@ namespace BAStudio.StatePattern
             }
             PopupStates.Remove(s);
         }
-        public IReadOnlyCollection<IPopupState>? ViewPopupStates ()
+        public IReadOnlyCollection<IPopupState<T>>? ViewPopupStates ()
         {
             return PopupStates?.AsReadOnly();
         }
@@ -122,7 +122,7 @@ namespace BAStudio.StatePattern
         /// <para>It is recommended to use the generic version instead, internal cached states will be used.</para>
         /// <para>However, this could be useful in situations like state instances carry different data, or a non-stateful state is shared by massive amount of StateMachines.</para>
         /// </summary>
-        public virtual void ChangeState(IState state, object parameter = null)
+        public virtual void ChangeState(IState<T> state, object parameter = null)
         {
             PreStateChange(CurrentState, state, parameter);
             var prev = CurrentState;
@@ -138,12 +138,12 @@ namespace BAStudio.StatePattern
         /// <para>Change the state to the specified type, with parameter supplied.</para>
         /// <para>The StateMachine automatically manages and keeps the state objects used.</para>
         /// </summary>
-        public virtual void ChangeState<S>(object parameter = null) where S : IState
+        public virtual void ChangeState<S>(object parameter = null) where S : IState<T>
         {
-            if (AutoStateCache == null) AutoStateCache = new Dictionary<Type, IState>();
+            if (AutoStateCache == null) AutoStateCache = new Dictionary<Type, IState<T>>();
             if (!AutoStateCache.TryGetValue(typeof(S), out var state))
             {
-                state = (IState) StateResolver.Resolve(typeof(S));
+                state = (IState<T>) StateResolver.Resolve(typeof(S));
                 AutoStateCache.Add(typeof(S), state);
                 if (DeliverOnlyOnceForCachedStates) DeliverComponents(state);
             }
@@ -163,7 +163,7 @@ namespace BAStudio.StatePattern
         /// If the state is an IComponentUser, this walks through all properties and try to fill in with type-matching components provided.
         /// </summary>
         /// <param name="state"></param>
-        protected virtual void DeliverComponents(IState state)
+        protected virtual void DeliverComponents(IState<T> state)
         {
             if (state is IComponentUser cu)
             {
@@ -222,7 +222,7 @@ namespace BAStudio.StatePattern
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual void PreStateChange(IState fromState, IState toState, object parameter = null)
+        protected virtual void PreStateChange(IState<T> fromState, IState<T> toState, object parameter = null)
         {
             if (debugOutput != null && (DebugFlags & DebugFlag_StateChange) != 0) LogFormat("A StateMachine<{0}> is switching from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, toState.GetType().Name);
 
@@ -233,7 +233,7 @@ namespace BAStudio.StatePattern
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual void PostStateChange(IState fromState)
+        protected virtual void PostStateChange(IState<T> fromState)
         {
             if (debugOutput != null && (DebugFlags & DebugFlag_StateChange) != 0)
                 LogFormat("A StateMachine<{0}> has switched from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, CurrentState.GetType().Name);
@@ -249,10 +249,10 @@ namespace BAStudio.StatePattern
         /// </summary>
         /// <param name="state"></param>
         /// <typeparam name="S"></typeparam>
-        public void Cache<S> (S state) where S : IState
+        public void Cache<S> (S state) where S : IState<T>
         {
             if (DeliverOnlyOnceForCachedStates) DeliverComponents(state);
-            if (AutoStateCache == null) AutoStateCache = new Dictionary<Type, IState>();
+            if (AutoStateCache == null) AutoStateCache = new Dictionary<Type, IState<T>>();
             AutoStateCache[typeof(S)] = state;
         }
 
@@ -260,9 +260,9 @@ namespace BAStudio.StatePattern
         /// Cache the provided state instance, keyed by its runtime type.
         /// Useful when the compile-time type is not known (e.g., auto-discovered MonoBehaviour states).
         /// </summary>
-        public void CacheByType(IState state)
+        public void CacheByType(IState<T> state)
         {
-            if (AutoStateCache == null) AutoStateCache = new Dictionary<Type, IState>();
+            if (AutoStateCache == null) AutoStateCache = new Dictionary<Type, IState<T>>();
             AutoStateCache[state.GetType()] = state;
             if (DeliverOnlyOnceForCachedStates) DeliverComponents(state);
         }
@@ -284,7 +284,7 @@ namespace BAStudio.StatePattern
 #if UNITY_2017_1_OR_NEWER
         public bool IsFixedUpdating { get; protected set; }
         public bool IsLateUpdating { get; protected set; }
-        public virtual void FixedUpdate(StateMachine<T> machine, T subject)
+        public virtual void FixedUpdate()
         {
             SelfDiagnosticOnUpdate();
 
@@ -297,7 +297,7 @@ namespace BAStudio.StatePattern
             IsFixedUpdating = false;
         }
 
-        public virtual void LateUpdate(StateMachine<T> machine, T subject)
+        public virtual void LateUpdate()
         {
             SelfDiagnosticOnUpdate();
 
@@ -392,7 +392,7 @@ namespace BAStudio.StatePattern
             return true;
         }
 
-        public virtual bool SendEvent<S, E>(E ev, bool shouldThrow) where S : StateMachine<T>.IState
+        public virtual bool SendEvent<S, E>(E ev, bool shouldThrow) where S : IState<T>
         {
             if (CurrentState is not S)
                 if (shouldThrow) throw new Exception($"Event sender expected {typeof(S)}, but current state is {CurrentState.GetType().Name}.");
