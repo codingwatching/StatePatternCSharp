@@ -8,7 +8,8 @@ using System.Threading.Tasks;
 
 namespace BAStudio.StatePattern
 {
-    public partial class StateMachine<T> : IStateMachine<T>
+    [DisableAutoComponents]
+    public partial class StateMachine<T> : IStateMachine<T>, IComponentUser
     {
         protected System.Action<string, object[]> debugOutput;
         public event System.Action<string, object[]> DebugOutput { add => debugOutput += value; remove => debugOutput -= value; }
@@ -19,13 +20,18 @@ namespace BAStudio.StatePattern
         public const int DebugFlag_Component = 1 << 3;
         public const int DebugFlag_All = DebugFlag_StateChange | DebugFlag_PopupState | DebugFlag_Event | DebugFlag_Component;
 
+        protected StateMachine()
+        {
+            CurrentState = new NoOpState();
+        }
+
         public StateMachine(T subject)
         {
             Subject = subject;
             CurrentState = new NoOpState();
             UpdatePaused = false;
         }
-        public T Subject { get; }
+        public T Subject { get; protected set; }
         public IState<T> CurrentState { get; protected set; }
 
         private bool updatePaused;
@@ -117,6 +123,18 @@ namespace BAStudio.StatePattern
             Components[typeof(PT)] = obj;
         }
 
+        /// <summary>
+        /// Receives components from the parent machine at entry time (snapshot).
+        /// Stores each component locally so the sub-machine's own states receive
+        /// them through normal DeliverComponents when they enter.
+        /// Virtual -- sub-machines that want isolation override to no-op.
+        /// </summary>
+        public virtual void OnComponentSupplied(Type componentType, object component)
+        {
+            if (Components == null) Components = new Dictionary<Type, object>();
+            Components[componentType] = component;
+        }
+
 
         /// <summary>
         /// <para>Change the state to the provide instance, with parameter supplied.</para>
@@ -168,6 +186,9 @@ namespace BAStudio.StatePattern
         {
             if (state is IComponentUser cu)
             {
+                if (Components == null || Components.Count == 0) return;
+                if (TypesDisabledAutoComponents == null) TypesDisabledAutoComponents = new Dictionary<Type, bool>();
+
                 Type stateType = state.GetType();
                 if (!TypesDisabledAutoComponents.TryGetValue(stateType, out var isDisabled))
                 {
@@ -242,6 +263,7 @@ namespace BAStudio.StatePattern
             OnStateChanged?.Invoke(fromState, CurrentState);
 
             stateChangingDepth--;
+            NotifyPeersOfStateChange(fromState, CurrentState);
         }
 
         /// <summary>
@@ -389,6 +411,7 @@ namespace BAStudio.StatePattern
 
             SendEventToCurrentState(ev);
             SendEventToPopupStates(ev);
+            SendEventToPeers(ev);
 
             return true;
         }

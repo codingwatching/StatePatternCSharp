@@ -2,6 +2,7 @@ namespace BAStudio.StatePattern
 {
     public partial class MultiTrackStateMachine<T, TRACK> where TRACK : unmanaged, System.Enum
     {
+        [System.Obsolete("Use StateMachine<T>.PeerStateChangedEvent instead.")]
         public struct SideTrackStateChangedEvent
         {
 			public TRACK track;

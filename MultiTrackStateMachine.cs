@@ -12,6 +12,7 @@ namespace BAStudio.StatePattern
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <typeparam name="TRACK">Must be ~int32.</typeparam>
+    [System.Obsolete("Use StateMachine<T> with Link() for parallel composition.")]
     public partial class MultiTrackStateMachine<T, TRACK> : StateMachine<T> where TRACK : unmanaged, System.Enum
     {
         public MultiTrackStateMachine(T target) : base(target)
@@ -118,6 +119,7 @@ namespace BAStudio.StatePattern
             SendEventToCurrentState(ev);
             SendEventToSideTracks(ev);
             SendEventToPopupStates(ev);
+            SendEventToPeers(ev);
 
             return true;
         }

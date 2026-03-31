@@ -1,6 +1,8 @@
 # Machines as States + Link/Unlink Peer Ring — Unified Machine Composition
 
-> **Status:** In Progress
+> **Status:** Complete
+> **Completed:** 2026-04-01
+> **Walkthrough:** closed/2603291500-machines-as-states-walkthrough.md
 > **Created:** 2026-03-29
 > **Revised:** 2026-03-30 — integrated `2603301600-link-peer-ring-plan-revision.md` (Steps 2, 4, 5, 6 replaced with Link/Unlink peer ring model)
 > **Revised:** 2026-03-31 — removed `Host`, replaced component prototype chain with entry-time snapshot via `IComponentUser` per `2603311500-remove-host-component-snapshot-proposal.md`
