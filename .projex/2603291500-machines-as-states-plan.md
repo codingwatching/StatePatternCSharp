@@ -3,18 +3,19 @@
 > **Status:** Ready
 > **Created:** 2026-03-29
 > **Revised:** 2026-03-30 — integrated `2603301600-link-peer-ring-plan-revision.md` (Steps 2, 4, 5, 6 replaced with Link/Unlink peer ring model)
+> **Revised:** 2026-03-31 — removed `Host`, replaced component prototype chain with entry-time snapshot via `IComponentUser` per `2603311500-remove-host-component-snapshot-proposal.md`
 > **Author:** Claude (agent)
 > **Source:** `2603201530-statemachines-as-states-imagine.md` (Direction 1), `2603251600-attach-detach-parallel-machines-proposal.md` (superseded by Link/Unlink revision)
-> **Related Projex:** `2603251530-multitrack-validity-with-machines-as-states-eval.md`, `2603251545-trackless-parallel-regions-imagine.md`, `2603251200-statepatterncsharp-roadmap-nav.md`
+> **Related Projex:** `2603251530-multitrack-validity-with-machines-as-states-eval.md`, `2603251545-trackless-parallel-regions-imagine.md`, `2603251200-statepatterncsharp-roadmap-nav.md`, `2603311500-remove-host-component-snapshot-proposal.md`
 > **Worktree:** Yes
 
 ---
 
 ## Summary
 
-Unify hierarchical and parallel machine composition under `StateMachine<T>`. `StateMachine<T>` implements `IState<T>` for vertical nesting (machines as states) with `Host` for parent reference. `Link()`/`Unlink()` enable horizontal composition — a symmetric peer ring with direct lateral event broadcast. `Host` is exclusively for hierarchy; peers are equals with no ownership, no automatic ticking, and no component sharing. `MultiTrackStateMachine` becomes obsolete.
+Unify hierarchical and parallel machine composition under `StateMachine<T>`. `StateMachine<T>` implements `IState<T>` for vertical nesting (machines as states) — sub-machines receive parent components as a snapshot at entry time via `IComponentUser`, with no parent reference. `Link()`/`Unlink()` enable horizontal composition — a symmetric peer ring with direct lateral event broadcast. Peers are equals with no ownership, no automatic ticking, and no component sharing. `MultiTrackStateMachine` becomes obsolete.
 
-**Scope:** `Host` property (hierarchy-only), `IState<T>` on `StateMachine<T>`, `Link`/`Unlink` peer ring with event bridging, component prototype chain (hierarchy-only), MultiTrack deprecation.
+**Scope:** `IState<T>` on `StateMachine<T>`, `IComponentUser` on `StateMachine<T>` for entry-time component snapshot, `Link`/`Unlink` peer ring with event bridging, MultiTrack deprecation.
 **Estimated Changes:** 1 file modified, 4 files created, 2 files deprecated
 
 ---
@@ -31,15 +32,15 @@ Two composition patterns are needed and currently missing or incomplete:
 
 These two relationships are distinct and must not be conflated:
 
-- **Hierarchical:** Parent owns child. Parent ticks child. Events flow through nesting. `Host` is correct here.
-- **Parallel:** Peers are equals. No ownership. Events broadcast laterally. `Host` is wrong here — it implies ownership.
+- **Hierarchical:** Parent owns child. Parent ticks child. Sub-machine receives parent components as snapshot at entry. Events flow through nesting.
+- **Parallel:** Peers are equals. No ownership. Events broadcast laterally. No component sharing.
 
-`Host` serves hierarchy exclusively. `Link`/`Unlink` serves parallelism as a symmetric peer ring.
+`Link`/`Unlink` serves parallelism as a symmetric peer ring. Hierarchy uses `IState<T>` nesting with component snapshot delivery — no parent reference needed.
 
 ### Success Criteria
 
 - [ ] `StateMachine<T>` implements `IState<T>` — any machine subclass usable as a state via `ChangeState<SubMachine>()`
-- [ ] `Host` property on `StateMachine<T>` — set ONLY by machines-as-states nesting (`IState<T>.OnEntered`), not by peers
+- [ ] `StateMachine<T>` implements `IComponentUser` — receives parent components as snapshot at entry via `OnComponentSupplied` → `SetComponent`
 - [ ] `Link(a, b)` / `Unlink(a, b)` — static, symmetric, bidirectional peer ring
 - [ ] Peers broadcast events laterally — no hub, no "up then redistribute"
 - [ ] Peers do NOT tick each other — caller ticks all machines independently
@@ -48,7 +49,7 @@ These two relationships are distinct and must not be conflated:
 - [ ] `ForwardedEvent<E>` envelope for cross-boundary event source identification
 - [ ] `PeerStateChangedEvent` for cross-peer state change notification
 - [ ] Event re-entry guard prevents infinite loops between peers
-- [ ] Component prototype chain walks `Host` — sub-machine states access ancestor components; peers do not
+- [ ] Sub-machine states access parent components via entry-time snapshot; peers do not share components
 - [ ] `GetStatePath()` returns full nested path for debug output
 - [ ] `MultiTrackStateMachine` marked `[Obsolete]` with Link migration message
 - [ ] Constructor problem resolved — parameterless construction with deferred subject
@@ -83,14 +84,14 @@ These two relationships are distinct and must not be conflated:
 
 | File | Role | Change Summary |
 |------|------|----------------|
-| `StateMachine.cs` | Core machine class | Parameterless ctor, Subject settable, modify `SendEvent`/`PostStateChange` for peer broadcast, component chain helpers |
-| `StateMachine.AsState.cs` | **New** partial | `Host` property (hierarchy-only), explicit `IState<T>` implementation, virtual hooks, `GetStatePath()` |
+| `StateMachine.cs` | Core machine class | Parameterless ctor, Subject settable, modify `SendEvent`/`PostStateChange` for peer broadcast, `IComponentUser` impl, `[DisableAutoComponents]` |
+| `StateMachine.AsState.cs` | **New** partial | Explicit `IState<T>` implementation, virtual hooks, `GetStatePath()` |
 | `StateMachine.Link.cs` | **New** partial | `peers` field, `Link()`, `Unlink()`, `SendEventToPeers()`, `NotifyPeersOfStateChange()`, `ReceiveFromPeer()`, dispatch guards |
 | `StateMachine.PeerStateChangedEvent.cs` | **New** partial | Event struct for cross-peer state change notification `{ source, from, to }` |
 | `StateMachine.ForwardedEvent.cs` | **New** partial | Generic envelope for cross-boundary events |
 | `MultiTrackStateMachine.cs` | Multi-track extension | `[Obsolete]` attribute + migration message |
 | `MultiTrackStateMachine.SideTrackStateChangedEvent.cs` | Side track event | `[Obsolete]` attribute |
-| `IStateMachine.cs` | Machine facade | No changes — `Host` stays on concrete class |
+| `IStateMachine.cs` | Machine facade | No changes |
 
 ### Dependencies
 
@@ -101,8 +102,8 @@ These two relationships are distinct and must not be conflated:
 
 - `Subject { get; }` is currently get-only — `{ get; protected set; }` is the minimum. Cannot be public-settable.
 - Parameterless constructor must be `protected` — user sub-machine classes define their own public parameterless ctor chaining to `base()`.
-- `Host` stays on `StateMachine<T>`, NOT on `IStateMachine<T>` — keeps the facade minimal. States needing host access cast to `StateMachine<T>`.
-- `Host` typed as `IStateMachine<T>` — receives `IStateMachine<T>` from `OnEntered`. Component chain casts to `StateMachine<T>` and stops if the cast fails.
+- No `Host` property — sub-machines have no parent reference. Components are delivered as a snapshot at entry time via existing `IComponentUser`/`DeliverComponents` contract.
+- `StateMachine<T>` marked `[DisableAutoComponents]` — skips reflection, uses bulk `OnComponentSupplied` path for component snapshot delivery.
 - Links are pairwise, not transitive. `Link(A,B)` + `Link(B,C)` does NOT mean A sees C.
 - `Unlink()` does NOT exit either machine's state. Peers don't own each other's lifecycle.
 - `Link()`/`Unlink()` throw if called during peer event dispatch (mutation guard).
@@ -115,7 +116,7 @@ These two relationships are distinct and must not be conflated:
 
 ### Impact Analysis
 
-- **Direct:** `StateMachine<T>` — modified (ctor, Subject, SendEvent, PostStateChange, DeliverComponents). New partial files for IState, Link, events.
+- **Direct:** `StateMachine<T>` — modified (ctor, Subject, SendEvent, PostStateChange, IComponentUser). New partial files for IState, Link, events.
 - **Adjacent:** `MultiTrackStateMachine<T, TRACK>` — deprecated. Continues to function but marked `[Obsolete]`.
 - **Downstream:** `MonoBehaviourStateMachine<T>` — unaffected (wraps via composition). A machine with peers is still just a `StateMachine<T>`; the wrapper ticks it the same way.
 
@@ -125,7 +126,7 @@ These two relationships are distinct and must not be conflated:
 
 ### Overview
 
-Six steps: (1) foundation — Subject settability + parameterless ctor, (2) Link/Unlink peer ring, (3) IState<T> implementation + Host property, (4) event bridging + re-entry guard, (5) component prototype chain (hierarchy-only), (6) deprecation.
+Six steps: (1) foundation — Subject settability + parameterless ctor, (2) Link/Unlink peer ring, (3) IState<T> implementation (no Host), (4) event bridging + re-entry guard, (5) component snapshot at entry via IComponentUser, (6) deprecation.
 
 ---
 
@@ -274,9 +275,9 @@ namespace BAStudio.StatePattern
 
 ---
 
-### Step 3: Implement IState<T> on StateMachine<T> + Host Property
+### Step 3: Implement IState<T> on StateMachine<T>
 
-**Objective:** Hierarchical composition — machines nestable as states inside parent machines. `Host` property for parent reference, set exclusively here.
+**Objective:** Hierarchical composition — machines nestable as states inside parent machines. No parent reference — sub-machines are just states.
 **Confidence:** High
 **Depends on:** Step 1 (Subject settability)
 
@@ -290,18 +291,10 @@ namespace BAStudio.StatePattern
 {
     public partial class StateMachine<T> : IState<T>
     {
-        /// <summary>
-        /// The machine that manages this machine via ChangeState (hierarchical nesting).
-        /// Null for root machines and peers. Set exclusively by IState&lt;T&gt;.OnEntered
-        /// and cleared by IState&lt;T&gt;.OnLeaving. Peers never touch it.
-        /// </summary>
-        public IStateMachine<T> Host { get; private set; }
-
         // --- IState<T> explicit implementation ---
 
         void IState<T>.OnEntered(IStateMachine<T> machine, IState<T> previous, T subject, object parameter)
         {
-            Host = machine;
             Subject = subject;
             OnNestedEntry(previous, parameter);
         }
@@ -316,7 +309,6 @@ namespace BAStudio.StatePattern
             if (CurrentState is not NoOpState && CurrentState != null)
                 CurrentState.OnLeaving(this, null, subject, parameter);
             CurrentState = new NoOpState();
-            Host = null;
         }
 
         void IState<T>.Reset()
@@ -341,7 +333,7 @@ namespace BAStudio.StatePattern
         /// <summary>
         /// Called when this machine is entered as a state inside a parent machine.
         /// Override to set the initial state (e.g., <c>ChangeState&lt;MyInitialState&gt;()</c>).
-        /// Subject and Host are already set when this is called.
+        /// Subject is already set when this is called.
         /// </summary>
         protected virtual void OnNestedEntry(IState<T> previous, object parameter) { }
 
@@ -374,9 +366,9 @@ namespace BAStudio.StatePattern
 }
 ```
 
-**Rationale:** Explicit interface implementation keeps `IState<T>` methods invisible on root machines — only visible when cast to `IState<T>`, which `ChangeState` does internally. `OnLeaving` exits child state and resets to `NoOpState` for clean re-entry. `Update()` delegation is virtual — `MultiTrackStateMachine.Update()` override works correctly if a multi-track machine is nested in the future. `Host` is defined here and set only by the `IState<T>` lifecycle — peers never touch it.
+**Rationale:** Explicit interface implementation keeps `IState<T>` methods invisible on root machines — only visible when cast to `IState<T>`, which `ChangeState` does internally. `OnLeaving` exits child state and resets to `NoOpState` for clean re-entry. `Update()` delegation is virtual — `MultiTrackStateMachine.Update()` override works correctly if a multi-track machine is nested in the future. No `Host` property — a nested machine is just a state; it receives what it needs at entry, not by reaching upward.
 
-**Verification:** `parent.ChangeState<SubMachine>()` enters sub-machine, `sub.Host == parent`. `parent.Update()` cascades to sub-machine. `parent.ChangeState<Other>()` exits sub-machine cleanly.
+**Verification:** `parent.ChangeState<SubMachine>()` enters sub-machine, `sub.Subject == parent.Subject`. `parent.Update()` cascades to sub-machine. `parent.ChangeState<Other>()` exits sub-machine cleanly.
 
 **If this fails:** Delete `StateMachine.AsState.cs`. Link/Unlink still works independently.
 
@@ -560,99 +552,50 @@ Nested machines (IState) do NOT get host events automatically — they're the Cu
 
 ---
 
-### Step 5: Component Prototype Chain — Hierarchy Only
+### Step 5: Component Snapshot at Entry — IComponentUser on StateMachine
 
-**Objective:** Sub-machine states access ancestor components via `Host` chain. Peers are independent.
-**Confidence:** Medium — modifying `DeliverComponents` internals requires care.
-**Depends on:** Step 3 (Host)
+**Objective:** Sub-machine receives parent components as a snapshot at entry time. No parent reference, no chain-walking. Peers are independent.
+**Confidence:** High — reuses existing `DeliverComponents` + `IComponentUser` + `SetComponent` contracts with no new abstractions.
+**Depends on:** Step 3 (IState<T> implementation)
 
 **Files:**
-- `StateMachine.cs`
+- `StateMachine.cs` (add `IComponentUser` implementation, `[DisableAutoComponents]` attribute)
 
 **Changes:**
 
-Add chain-walking resolution:
+`StateMachine<T>` implements `IComponentUser` and is marked `[DisableAutoComponents]`:
 
 ```csharp
-// Add after SetComponent (after line 118):
+[DisableAutoComponents]
+public partial class StateMachine<T> : IStateMachine<T>, IComponentUser
+```
 
+Add `IComponentUser` implementation:
+
+```csharp
 /// <summary>
-/// Resolve a component by type, walking up the Host chain.
-/// Local components shadow ancestor components.
-/// Since peers never set Host, the chain stops at the peer machine itself.
+/// Receives components from the parent machine at entry time (snapshot).
+/// Stores each component locally via SetComponent so the sub-machine's own
+/// states receive them through normal DeliverComponents when they enter.
+/// Virtual — sub-machines that want isolation override to no-op.
 /// </summary>
-internal bool TryResolveComponent(Type type, out object component)
+public virtual void OnComponentSupplied(Type componentType, object component)
 {
-    for (var m = this; m != null; m = m.Host as StateMachine<T>)
-    {
-        if (m.Components != null && m.Components.TryGetValue(type, out component))
-            return true;
-    }
-    component = null;
-    return false;
-}
-
-/// <summary>
-/// Deliver all components from this machine and ancestors to an IComponentUser.
-/// Local components shadow ancestor components of the same type.
-/// </summary>
-private void DeliverAllChainedComponents(IComponentUser cu)
-{
-    if (Host == null)
-    {
-        // Fast path: no host, just deliver local
-        if (Components != null)
-            foreach (var kvp in Components)
-                cu.OnComponentSupplied(kvp.Key, kvp.Value);
-        return;
-    }
-
-    // Slow path: collect from chain, local shadows ancestor
-    HashSet<Type> delivered = new HashSet<Type>();
-    for (var m = this; m != null; m = m.Host as StateMachine<T>)
-    {
-        if (m.Components == null) continue;
-        foreach (var kvp in m.Components)
-        {
-            if (delivered.Add(kvp.Key))
-                cu.OnComponentSupplied(kvp.Key, kvp.Value);
-        }
-    }
+    SetComponent(componentType, component);
 }
 ```
 
-Modify `DeliverComponents` to use chain resolution:
+No changes to `DeliverComponents` internals. The existing flow already delivers components to `IComponentUser` states — `StateMachine<T>` as a state now receives them through this path:
 
-```csharp
-// Line 180-181 (DisableAutoComponents path):
-// Before:
-foreach (var kvp in Components)
-    cu.OnComponentSupplied(kvp.Key, kvp.Value);
-
-// After:
-DeliverAllChainedComponents(cu);
+```
+Parent.ChangeState<SubMachine>()
+  -> Parent.DeliverComponents(subMachine)   // existing flow
+    -> subMachine.OnComponentSupplied(typeof(ILogger), logger)
+      -> subMachine.SetComponent(typeof(ILogger), logger)  // stored locally
+        -> later: subMachine.DeliverComponents(childState)  // normal delivery
 ```
 
-```csharp
-// Lines 205-208 (no AutoComponent props path):
-// Before:
-foreach (var kvp in Components)
-    cu.OnComponentSupplied(kvp.Key, kvp.Value);
-
-// After:
-DeliverAllChainedComponents(cu);
-```
-
-```csharp
-// Line 215 (AutoComponent reflection path):
-// Before:
-if (Components.TryGetValue(propType, out var comp))
-
-// After:
-if (TryResolveComponent(propType, out var comp))
-```
-
-**Rationale:** `TryResolveComponent` is zero-allocation (loop with null checks). `DeliverAllChainedComponents` has a fast path for root machines (no allocation) and a slow path (HashSet) for hosted machines — only runs during `ChangeState`, not per-frame. The chain casts `Host` to `StateMachine<T>` — stops walking if `Host` is a non-concrete `IStateMachine<T>`. Since peers never set `Host`, the chain stops at the peer machine itself — no code change needed to exclude peers, the separation is structural.
+`[DisableAutoComponents]` skips the reflection path on `StateMachine<T>` (no `[AutoComponent]` properties on the machine class) and uses the bulk `OnComponentSupplied` path instead.
 
 Shared components across peers = user registers on each:
 ```csharp
@@ -661,13 +604,16 @@ machineA.SetComponent(shared);
 machineB.SetComponent(shared);
 ```
 
-**Verification:**
-1. Parent machine: `SetComponent<ILogger, Logger>(logger)` → sub-machine state with `[AutoComponent] ILogger` receives it
-2. Sub-machine: `SetComponent<ILogger, OtherLogger>(other)` → local shadows parent
-3. Root machine with no Host → fast path, no allocation, identical behavior to current code
-4. Peer machine → chain stops at self, no ancestor components visible
+**Rationale:** Zero new machinery. The sub-machine is an `IComponentUser` like any other state, and the parent delivers components to it like any other state. This is the most consistent with "a machine is just a state." Snapshot semantics — component changes on the parent after entry don't propagate. Same constraint as any state: states don't get re-delivered after entry either. `OnComponentSupplied` is virtual — sub-machines that want component isolation override it to no-op.
 
-**If this fails:** Revert `DeliverComponents` changes. Component chain is additive — without it, sub-machine states just don't see ancestor components. Degraded but functional.
+**Verification:**
+1. Parent machine: `SetComponent<ILogger, Logger>(logger)` → sub-machine stores it locally, sub-machine's child states with `[AutoComponent] ILogger` receive it
+2. Sub-machine: `SetComponent<ILogger, OtherLogger>(other)` → local overwrites snapshot (later `SetComponent` wins)
+3. Root machine → no behavioral change (never passed through `DeliverComponents` as a state)
+4. Peer machine → no component sharing (peers don't deliver to each other)
+5. Component changed on parent after entry → sub-machine retains snapshot (by design)
+
+**If this fails:** Remove `IComponentUser` implementation and `[DisableAutoComponents]`. Sub-machine states just don't see parent components. Degraded but functional.
 
 ---
 
@@ -760,7 +706,7 @@ buffs.Update();
 | `SendEvent` cascades to all tracks | `SendEventToPeers` wraps as `ForwardedEvent<E>` | Direct lateral broadcast |
 | Side track state change → main + others | `NotifyPeersOfStateChange` → `PeerStateChangedEvent` to all peers | Direct broadcast, no hub |
 | `SideTrackStateChangedEvent` with TRACK | `PeerStateChangedEvent` with `source` reference | Machine reference replaces enum |
-| `DeliverComponents` to tracks | Each peer has own components | No sharing |
+| `DeliverComponents` to tracks | Each peer has own components; nested sub-machines receive parent components as snapshot at entry via `IComponentUser` | No sharing (peers); snapshot at entry (hierarchy) |
 | `OnSideTrackStateChanged` delegate | Per-machine `OnStateChanged` | Already exists on every machine |
 
 ---
@@ -779,7 +725,7 @@ buffs.Update();
 - [ ] **Combined:** Nested sub-machine with linked parallel machines — all update, events flow correctly
 - [ ] **Event bridging:** A sends event → B receives `ForwardedEvent<E>` with source=A; A changes state → B receives `PeerStateChangedEvent` with source=A
 - [ ] **No duplication:** A-B-C fully linked, A sends event → B and C each receive once
-- [ ] **Components:** Sub-machine state accesses host's component via `[AutoComponent]`; local shadows ancestor; peers do NOT share
+- [ ] **Components:** Sub-machine receives parent components as snapshot at entry; local `SetComponent` overwrites snapshot; peers do NOT share
 - [ ] **Re-entry guard:** Two peers sending events to each other → caps at depth 8, logs warning
 - [ ] **No peer ticking:** `a.Update()` does NOT tick `b`
 - [ ] **Debug path:** `GetStatePath()` returns `"SubMachine > LeafState"`
@@ -795,11 +741,11 @@ buffs.Update();
 | IState<T> implementation | `machine is IState<T>` | `true` |
 | Update cascade (nested) | Breakpoint in nested state's Update | Hit every frame |
 | No peer ticking | Breakpoint in peer state's Update | NOT hit from other peer's Update |
-| Host property (nested) | Check from nested state | Returns host `IStateMachine<T>` |
-| Host property (peer) | Check from linked peer | `null` |
-| Event bridging (peer) | Send event on A | B receives `ForwardedEvent<E>` |
-| Component chain (nested) | `[AutoComponent]` on sub-machine state | Receives ancestor component |
+| Component snapshot (nested) | `[AutoComponent]` on sub-machine's child state | Receives parent's component via snapshot |
 | Component isolation (peer) | `[AutoComponent]` on peer state | Does NOT receive other peer's component |
+| Event bridging (peer) | Send event on A | B receives `ForwardedEvent<E>` |
+| Component snapshot (nested) | `[AutoComponent]` on sub-machine's child state | Receives parent component from snapshot |
+| Component snapshot staleness | Parent `SetComponent` after entry | Sub-machine retains original snapshot |
 | Re-entry guard | Circular event forwarding | Caps at depth 8 |
 | MultiTrack obsolete | Compile existing MultiTrack usage | Warning, not error |
 
@@ -810,7 +756,7 @@ buffs.Update();
 Steps are independently revertible in reverse order:
 
 1. **Step 6:** Remove `[Obsolete]` attributes.
-2. **Step 5:** Revert `DeliverComponents` changes, remove chain helpers.
+2. **Step 5:** Remove `IComponentUser` implementation and `[DisableAutoComponents]` from `StateMachine<T>`.
 3. **Step 4:** Revert `SendEvent`/`PostStateChange` modifications, delete event struct files.
 4. **Step 3:** Delete `StateMachine.AsState.cs`.
 5. **Step 2:** Delete `StateMachine.Link.cs`.
@@ -830,7 +776,7 @@ Full rollback: revert all, delete new files. No migrations, no external state.
 | Mutation during dispatch | Medium | High | `isPeerDispatching` guard throws with clear message. |
 | Re-entry ping-pong between peers | Medium | High | `peerEventForwardingDepth` caps at 8, logs warning. |
 | `Unlink` doesn't exit states | Low | Low | Intentional: peers don't own lifecycle. Document the pattern. |
-| HashSet allocation in component chain | Low | Low | Per-delivery when Host exists. Runs during `ChangeState`, not per-frame. Fast path (no Host) is allocation-free. |
+| Stale components after parent `SetComponent` | Medium | Low | Snapshot semantics by design. Same constraint as any state — states don't get re-delivered after entry either. Document clearly. |
 | Event forwarding overhead | Low | Low | `ForwardedEvent<E>` wrapping creates one struct per event per peer. Zero-cost when no peers (null check short-circuits). |
 
 ## Open Questions
