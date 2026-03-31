@@ -1,6 +1,6 @@
 # statepatterncsharp Library Roadmap
 
-> **Created:** 2026-03-25 | **Last Revised:** 2026-03-27
+> **Created:** 2026-03-25 | **Last Revised:** 2026-03-29
 > **Author:** Claude (agent)
 > **Scope:** Entire statepatterncsharp library — core, multi-track, Unity integration
 
@@ -14,22 +14,24 @@ A C# state pattern library that works cleanly in both pure .NET and Unity contex
 
 ## Current Position
 
-**As of 2026-03-27:**
+**As of 2026-03-29:**
 
-Phases 1 and 2 are complete and closed. The core now uses a top-level `IState` interface with a pluggable resolver layer — `ChangeState<S>()` no longer requires `new()` and accepts externally-created states. Phase 3 (MonoBehaviour wrapper) has a plan ready to execute.
+Phases 1–3 and the new Phase 4 (IStateMachine Facade) are complete and closed. The core now has clean mutual-reference interfaces — `IStateMachine<T>`, `IState<T>`, and `IPopupState<T>` — with `StateMachine<T>` implementing `IStateMachine<T>`. States receive `IStateMachine<T>` in all lifecycle methods, decoupling them from the concrete class. Phase 5 (Hierarchical Machines) is now unblocked.
 
 ### Recent Progress
 - `ObserverTransitionState` added — observer-pattern hook on transitions
 - `"Context"/"Target"` renamed to `"Subject"` across the codebase — 2026-03 (01b4fae)
-- Three proposals drafted, three plans derived — 2026-03-12
 - Phase 1 IState extraction executed, audited, and closed — 2026-03-25 (39ada27)
 - Phase 2 resolver executed and closed — 2026-03-27 (d5cef05)
+- Phase 3 MonoBehaviour wrapper executed and closed — 2026-03-28 (45f4db7)
+- Phase 4 IStateMachine facade + IState<T>/IPopupState<T> extraction executed and closed — 2026-03-29 (7aae3a7)
 
 ### Active Work
-- Phase 3 plan ready to execute: `20260312-monobehaviour-statemachine-plan.md`
+- None currently. Phase 5 (Hierarchical Machines) is the logical next step.
+- `2603281200-noopstate-default-plan.md` — exists but execution status unknown; review before next cycle.
 
 ### Known Blockers
-- None. Execution order must be respected: resolver second, MonoBehaviour wrapper third.
+- None.
 
 ---
 
@@ -64,33 +66,48 @@ Phases 1 and 2 are complete and closed. The core now uses a top-level `IState` i
 
 ---
 
-### Phase 3: Unity Integration — **Current**
+### Phase 3: Unity Integration — **Done**
 
 **Goal:** Ship `MonoBehaviourStateMachine<T>` — a Unity MonoBehaviour wrapper that auto-discovers `IState` components, registers serialized ScriptableObject states via the resolver, and drives machine updates from Unity's lifecycle.
 
 **Milestones:**
-- [ ] `MonoBehaviourStateMachine<T>` implemented in `unity/`
+- [x] `MonoBehaviourStateMachine<T>` implemented in `unity/`
   - Ideation: `20260311-monobehaviour-statemachine-proposal.md`
-  - Execution: `20260312-monobehaviour-statemachine-plan.md`
+  - Red team: `2603272256-monobehaviour-statemachine-plan-redteam.md`
+  - Execution: `20260312-monobehaviour-statemachine-plan.md` (45f4db7)
 
-**Exit Criteria:** `unity/MonoBehaviourStateMachine.cs` exists; compiles under Unity's .NET Standard 2.1 profile; auto-component discovery and ScriptableObject registration work end-to-end.
+**Exit Criteria:** `unity/MonoBehaviourStateMachine.cs` exists; compiles under Unity's .NET Standard 2.1 profile; auto-component discovery and ScriptableObject registration work end-to-end. ✓
 
 ---
 
-### Phase 4: Hierarchical Machines — **Future / Speculative**
+### Phase 4: IStateMachine Facade — **Done**
 
-**Goal:** Enable `StateMachine<T>` to implement `IState`, making machines nestable as states within parent machines. Unlocks hierarchical state trees with single-tick cascade.
+**Goal:** Extract `StateMachine<T>.IState` and `StateMachine<T>.IPopupState` to top-level `IState<T>` and `IPopupState<T>` interfaces. Introduce `IStateMachine`/`IStateMachine<T>` facade interfaces with clean mutual references. `StateMachine<T>` implements `IStateMachine<T>`. All state lifecycle methods receive `IStateMachine<T>` instead of the concrete class.
+
+**Milestones:**
+- [x] `IStateMachine<T>` facade + `IState<T>` + `IPopupState<T>` extracted and wired
+  - Ideation: `2603281430-statemachine-as-interface-eval.md`, `2603281600-statemachine-driver-interface-proposal.md`
+  - Red team: `2603281700-istatemachine-and-istate-extraction-plan-redteam.md`
+  - Execution: `2603281630-istatemachine-and-istate-extraction-plan.md` → `2603281630-istatemachine-and-istate-extraction-walkthrough.md` (7aae3a7)
+
+**Exit Criteria:** `IStateMachine.cs`, `IState.cs`, `IPopupState.cs` exist at namespace level; nested interfaces deleted; `StateMachine<T> : IStateMachine<T>`; all state method signatures use `IStateMachine<T>`. ✓
+
+---
+
+### Phase 5: Hierarchical Machines — **Current**
+
+**Goal:** Enable `StateMachine<T>` to implement `IState<T>`, making machines nestable as states within parent machines. Unlocks hierarchical state trees with single-tick cascade.
 
 **Milestones:**
 - [ ] Design and proposal for machine-as-state capability
-  - Ideation: `2603201530-statemachines-as-states-imagine.md` (imagination — not yet a proposal)
-  - Execution: *(no plan yet — depends on Phase 1-3 landing)*
+  - Ideation: `2603201530-statemachines-as-states-imagine.md`
+  - Execution: *(no plan yet — Phase 4 prerequisite now met)*
 
 **Exit Criteria:** A machine can be used as a state in a parent machine; `Update()` cascades through the tree; constructor problem resolved.
 
 ---
 
-### Phase 5: Parallel Regions — **Future / Speculative**
+### Phase 6: Parallel Regions — **Future / Speculative**
 
 **Goal:** Extend the machine model with parallel and trackless region support — machines that run multiple concurrent state tracks, with dynamic attach/detach of sub-machines.
 
@@ -99,7 +116,7 @@ Phases 1 and 2 are complete and closed. The core now uses a top-level `IState` i
   - Ideation: `2603251530-multitrack-validity-with-machines-as-states-eval.md`
   - Execution: *(no plan yet)*
 - [ ] Design trackless parallel regions
-  - Ideation: `2603251545-trackless-parallel-regions-imagine.md` (imagination — not yet a proposal)
+  - Ideation: `2603251545-trackless-parallel-regions-imagine.md`
   - Execution: *(no plan yet)*
 - [ ] Attach/detach parallel machine API
   - Ideation: `2603251600-attach-detach-parallel-machines-proposal.md` (proposal — not yet a plan)
@@ -111,11 +128,11 @@ Phases 1 and 2 are complete and closed. The core now uses a top-level `IState` i
 
 ## Priorities
 
-**Current focus:** Execute Phase 3 (`20260312-monobehaviour-statemachine-plan.md`) — plan is ready, resolver prerequisite is now met.
+**Current focus:** Phase 5 (Hierarchical Machines) — all prerequisites met. Ideation seed exists (`2603201530-statemachines-as-states-imagine.md`); next step is a proposal or plan.
 
-**Next up:** Phase 4 hierarchical machines — depends on Phase 3 landing.
+**Next up:** Phase 6 (Parallel Regions) — deferred until Phase 5 lands.
 
-**Deferred:** Phases 4 and 5 — seeds only; no plans exist. Phase 5 ideation is active but not ready for execution.
+**Deferred:** Phase 6 — three ideation seeds exist but no plans. Multitrack validity eval and trackless parallel regions design are both unstarted.
 
 ---
 
@@ -132,3 +149,4 @@ Phases 1 and 2 are complete and closed. The core now uses a top-level `IState` i
 | 2026-03-25 | Initial roadmap created |
 | 2026-03-26 | Phase 1 marked Done (walkthrough + audit linked); Phase 2 promoted to Current; Phase 5 Parallel Regions stub added for three new ideation seeds |
 | 2026-03-27 | Phase 2 marked Done (walkthrough linked, d5cef05); Phase 3 promoted to Current; priorities updated to Phase 3 execution |
+| 2026-03-29 | Phase 3 marked Done (45f4db7); Phase 4 (IStateMachine Facade) inserted as Done (7aae3a7); old Phase 4→5 (Hierarchical Machines, Current), old Phase 5→6 (Parallel Regions, Future); priorities updated to Phase 5 |

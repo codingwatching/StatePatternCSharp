@@ -55,13 +55,13 @@ Convert the nested `abstract class State` inside `StateMachine<T>` to `interface
 ```csharp
 public abstract class State
 {
-    public abstract void OnEntered(StateMachine<T> machine, State previous, T subject, object parameter = null);
-    public abstract void Update(StateMachine<T> machine, T subject);
-    public abstract void OnLeaving(StateMachine<T> machine, State next, T subject, object parameter = null);
+    public abstract void OnEntered(IStateMachine<T> machine, State previous, T subject, object parameter = null);
+    public abstract void Update(IStateMachine<T> machine, T subject);
+    public abstract void OnLeaving(IStateMachine<T> machine, State next, T subject, object parameter = null);
     public abstract void Reset();
 #if UNITY_2017_1_OR_NEWER
-    public virtual void FixedUpdate(StateMachine<T> machine, T subject) {}
-    public virtual void LateUpdate(StateMachine<T> machine, T subject) {}
+    public virtual void FixedUpdate(IStateMachine<T> machine, T subject) {}
+    public virtual void LateUpdate(IStateMachine<T> machine, T subject) {}
 #endif
 }
 ```
@@ -126,28 +126,28 @@ Seven steps, one per file. Steps 1-2 are the definition changes; Steps 3-7 are m
 // Before:
 public abstract class State
 {
-    public abstract void OnEntered(StateMachine<T> machine, State previous, T subject, object parameter = null);
-    public abstract void Update(StateMachine<T> machine, T subject);
-    public abstract void OnLeaving(StateMachine<T> machine, State next, T subject, object parameter = null);
+    public abstract void OnEntered(IStateMachine<T> machine, State previous, T subject, object parameter = null);
+    public abstract void Update(IStateMachine<T> machine, T subject);
+    public abstract void OnLeaving(IStateMachine<T> machine, State next, T subject, object parameter = null);
     public abstract void Reset ();
 
 #if UNITY_2017_1_OR_NEWER
-    public virtual void FixedUpdate(StateMachine<T> machine, T subject) {}
-    public virtual void LateUpdate(StateMachine<T> machine, T subject) {}
+    public virtual void FixedUpdate(IStateMachine<T> machine, T subject) {}
+    public virtual void LateUpdate(IStateMachine<T> machine, T subject) {}
 #endif
 }
 
 // After:
 public interface IState
 {
-    void OnEntered(StateMachine<T> machine, IState previous, T subject, object parameter = null);
-    void Update(StateMachine<T> machine, T subject);
-    void OnLeaving(StateMachine<T> machine, IState next, T subject, object parameter = null);
+    void OnEntered(IStateMachine<T> machine, IState previous, T subject, object parameter = null);
+    void Update(IStateMachine<T> machine, T subject);
+    void OnLeaving(IStateMachine<T> machine, IState next, T subject, object parameter = null);
     void Reset();
 
 #if UNITY_2017_1_OR_NEWER
-    void FixedUpdate(StateMachine<T> machine, T subject) {}
-    void LateUpdate(StateMachine<T> machine, T subject) {}
+    void FixedUpdate(IStateMachine<T> machine, T subject) {}
+    void LateUpdate(IStateMachine<T> machine, T subject) {}
 #endif
 }
 ```
@@ -193,7 +193,7 @@ Key transformations:
 | 236 | `protected virtual void PostStateChange(State fromState)` | `protected virtual void PostStateChange(IState fromState)` |
 | 252 | `public void Cache<S> (S state) where S : State` | `public void Cache<S> (S state) where S : IState` |
 | 255 | `AutoStateCache = new Dictionary<Type, State>();` | `AutoStateCache = new Dictionary<Type, IState>();` |
-| 384 | `where S : StateMachine<T>.State` | `where S : StateMachine<T>.IState` |
+| 384 | `where S : IState<T>` | `where S : StateMachine<T>.IState` |
 
 **Rationale:** Mechanical find-and-replace. Every `State` type reference in this file refers to the nested class being renamed.
 
@@ -218,18 +218,18 @@ Key transformations:
 // Before:
 public sealed class NoOpState : State
 {
-    public override void OnEntered(StateMachine<T> machine, State previous, T subject, object parameter = null) {}
-    public override void Update(StateMachine<T> machine, T subject) {}
-    public override void OnLeaving(StateMachine<T> machine, State next, T subject, object parameter = null) {}
-    public override void Reset() {}
+    public override void OnEntered(IStateMachine<T> machine, State previous, T subject, object parameter = null) {}
+    public void Update(IStateMachine<T> machine, T subject) {}
+    public void OnLeaving(IStateMachine<T> machine, State next, T subject, object parameter = null) {}
+    public void Reset() {}
 }
 
 // After:
 public sealed class NoOpState : IState
 {
-    public void OnEntered(StateMachine<T> machine, IState previous, T subject, object parameter = null) {}
-    public void Update(StateMachine<T> machine, T subject) {}
-    public void OnLeaving(StateMachine<T> machine, IState next, T subject, object parameter = null) {}
+    public void OnEntered(IStateMachine<T> machine, IState previous, T subject, object parameter = null) {}
+    public void Update(IStateMachine<T> machine, T subject) {}
+    public void OnLeaving(IStateMachine<T> machine, IState next, T subject, object parameter = null) {}
     public void Reset() {}
 }
 ```
@@ -274,14 +274,14 @@ Method signature changes:
 
 ```csharp
 // Before:
-public override void OnEntered(StateMachine<T> machine, State previous, T subject, object parameter = null)
-public override void OnLeaving(StateMachine<T> machine, State next, T subject, object parameter = null)
-public override void Update(StateMachine<T> machine, T subject)
+public override void OnEntered(IStateMachine<T> machine, State previous, T subject, object parameter = null)
+public void OnLeaving(IStateMachine<T> machine, State next, T subject, object parameter = null)
+public void Update(IStateMachine<T> machine, T subject)
 
 // After:
-public void OnEntered(StateMachine<T> machine, IState previous, T subject, object parameter = null)
-public void OnLeaving(StateMachine<T> machine, IState next, T subject, object parameter = null)
-public void Update(StateMachine<T> machine, T subject)
+public void OnEntered(IStateMachine<T> machine, IState previous, T subject, object parameter = null)
+public void OnLeaving(IStateMachine<T> machine, IState next, T subject, object parameter = null)
+public void Update(IStateMachine<T> machine, T subject)
 ```
 
 Key transformations:

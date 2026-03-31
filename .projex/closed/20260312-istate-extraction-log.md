@@ -10,7 +10,7 @@ Base Branch: master
 **Status:** Success
 
 ### [20260325 00:02] - Step 2: Update StateMachine.cs
-**Action:** Replaced all `State` type references with `IState` in StateMachine.cs: `CurrentState` property, `OnStateChanging`/`OnStateChanged` event delegates, `AutoStateCache` dictionary type, `ChangeState(State)` and `ChangeState<S>` signatures and constraint, `DeliverComponents(State)`, `PreStateChange(State, State)`, `PostStateChange(State)`, `Cache<S>` constraint, `Dictionary<Type, State>` initializations (×2), `SendEvent<S, E>` constraint `where S : StateMachine<T>.State`.
+**Action:** Replaced all `State` type references with `IState` in StateMachine.cs: `CurrentState` property, `OnStateChanging`/`OnStateChanged` event delegates, `AutoStateCache` dictionary type, `ChangeState(State)` and `ChangeState<S>` signatures and constraint, `DeliverComponents(State)`, `PreStateChange(State, State)`, `PostStateChange(State)`, `Cache<S>` constraint, `Dictionary<Type, State>` initializations (×2), `SendEvent<S, E>` constraint `where S : IState<T>`.
 **Result:** 9 targeted edits covering all 14 occurrences listed in plan. `State` as a standalone type reference no longer appears in this file.
 **Status:** Success
 

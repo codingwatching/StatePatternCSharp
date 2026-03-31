@@ -1,4 +1,4 @@
-# Walkthrough: Extract IState Interface from StateMachine<T>.State
+# Walkthrough: Extract IState Interface from IState<T>
 
 > **Execution Date:** 2026-03-25
 > **Completed By:** Claude (agent)

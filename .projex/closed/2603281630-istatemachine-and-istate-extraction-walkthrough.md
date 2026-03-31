@@ -53,7 +53,7 @@ Extracted `StateMachine<T>.IState` and `StateMachine<T>.IPopupState` to top-leve
 
 ### Step 3: Normalize FixedUpdate/LateUpdate on StateMachine<T>
 
-**Planned:** Remove `(StateMachine<T> machine, T subject)` params from `FixedUpdate` and `LateUpdate` in `StateMachine.cs`. Update call sites in `unity/MonoBehaviourStateMachine.cs`.
+**Planned:** Remove `(IStateMachine<T> machine, T subject)` params from `FixedUpdate` and `LateUpdate` in `StateMachine.cs`. Update call sites in `unity/MonoBehaviourStateMachine.cs`.
 
 **Actual:** Exact as planned. `StateMachine.cs` L287/L300 signatures changed to `public virtual void FixedUpdate()` / `public virtual void LateUpdate()`. `MonoBehaviourStateMachine.cs` L101/L107 changed from `Machine.FixedUpdate(Machine, Machine.Subject)` to `Machine.FixedUpdate()`.
 

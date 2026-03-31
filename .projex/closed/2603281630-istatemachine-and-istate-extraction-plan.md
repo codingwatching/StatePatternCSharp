@@ -26,7 +26,7 @@ Extract `StateMachine<T>.IState` and `StateMachine<T>.IPopupState` to top-level 
 
 `IState` is nested inside `StateMachine<T>`, making it impossible to define an `IStateMachine<T>` interface without referencing the concrete class. The current proposal's Option B (facade that references `StateMachine<T>.IState`) works but creates semantic coupling — the interface "knows about" the class it abstracts. Option C eliminates this by extracting `IState<T>` to the namespace level, enabling clean mutual references between `IState<T>` and `IStateMachine<T>`.
 
-Additionally, `FixedUpdate`/`LateUpdate` on `StateMachine<T>` take `(StateMachine<T> machine, T subject)` parameters (matching the nested `IState` signature) while `Update()` is parameterless. The params are unused internally — the methods use `this` and `this.Subject`. This asymmetry must be normalized for `IStateMachine` to declare parameterless tick methods.
+Additionally, `FixedUpdate`/`LateUpdate` on `StateMachine<T>` take `(IStateMachine<T> machine, T subject)` parameters (matching the nested `IState` signature) while `Update()` is parameterless. The params are unused internally — the methods use `this` and `this.Subject`. This asymmetry must be normalized for `IStateMachine` to declare parameterless tick methods.
 
 ### Success Criteria
 
@@ -61,12 +61,12 @@ public partial class StateMachine<T>
 {
     public interface IState
     {
-        void OnEntered(StateMachine<T> machine, IState previous, T subject, object parameter = null);
-        void Update(StateMachine<T> machine, T subject);
-        void OnLeaving(StateMachine<T> machine, IState next, T subject, object parameter = null);
+        void OnEntered(IStateMachine<T> machine, IState previous, T subject, object parameter = null);
+        void Update(IStateMachine<T> machine, T subject);
+        void OnLeaving(IStateMachine<T> machine, IState next, T subject, object parameter = null);
         void Reset();
-        void FixedUpdate(StateMachine<T> machine, T subject) {}  // default impl
-        void LateUpdate(StateMachine<T> machine, T subject) {}   // default impl
+        void FixedUpdate(IStateMachine<T> machine, T subject) {}  // default impl
+        void LateUpdate(IStateMachine<T> machine, T subject) {}   // default impl
     }
 }
 ```
@@ -74,8 +74,8 @@ public partial class StateMachine<T>
 **FixedUpdate/LateUpdate asymmetry (`StateMachine.cs:270-311`):**
 ```csharp
 public virtual void Update() { ... }                                        // parameterless
-public virtual void FixedUpdate(StateMachine<T> machine, T subject) { ... } // params unused
-public virtual void LateUpdate(StateMachine<T> machine, T subject) { ... }  // params unused
+public virtual void FixedUpdate(IStateMachine<T> machine, T subject) { ... } // params unused
+public virtual void LateUpdate(IStateMachine<T> machine, T subject) { ... }  // params unused
 ```
 
 **No `IStateMachine` abstraction exists.** All consumers reference `StateMachine<T>` directly.
@@ -117,7 +117,7 @@ public virtual void LateUpdate(StateMachine<T> machine, T subject) { ... }  // p
 
 ### Assumptions
 
-- `FixedUpdate(StateMachine<T> machine, T subject)` and `LateUpdate(...)` on `StateMachine<T>` have their params genuinely unused — verified by reading L287-311
+- `FixedUpdate(IStateMachine<T> machine, T subject)` and `LateUpdate(...)` on `StateMachine<T>` have their params genuinely unused — verified by reading L287-311
 - No user-defined state implementations exist outside this repository (library has no external consumers yet)
 - `ObserverTransitionState.Update()` only calls `machine.ChangeState()` — which is on `IStateMachine<T>`
 - `TimedPopupState.Update()` only calls `machine.EndPopupState(this)` — which is on `IStateMachine<T>` after facade widening
@@ -344,7 +344,7 @@ In `StateMachine.cs`:
 
 ```csharp
 // Before (L287-298):
-public virtual void FixedUpdate(StateMachine<T> machine, T subject)
+public virtual void FixedUpdate(IStateMachine<T> machine, T subject)
 {
     SelfDiagnosticOnUpdate();
     if (UpdatePaused) return;
@@ -370,7 +370,7 @@ public virtual void FixedUpdate()
 
 ```csharp
 // Before (L300-311):
-public virtual void LateUpdate(StateMachine<T> machine, T subject)
+public virtual void LateUpdate(IStateMachine<T> machine, T subject)
 {
     // ... identical pattern ...
 }
@@ -479,9 +479,9 @@ public partial class StateMachine<T>
 {
     public sealed class NoOpState : IState
     {
-        public void OnEntered(StateMachine<T> machine, IState previous, T subject, object parameter = null) {}
-        public void Update(StateMachine<T> machine, T subject) {}
-        public void OnLeaving(StateMachine<T> machine, IState next, T subject, object parameter = null) {}
+        public void OnEntered(IStateMachine<T> machine, IState previous, T subject, object parameter = null) {}
+        public void Update(IStateMachine<T> machine, T subject) {}
+        public void OnLeaving(IStateMachine<T> machine, IState next, T subject, object parameter = null) {}
         public void Reset() {}
     }
 }
@@ -507,9 +507,9 @@ public abstract class ObserverTransitionState<H, FROM, TO> : IState, IObserver<H
     where FROM : IState
     where TO : class, IState
 
-    public void OnEntered(StateMachine<T> machine, IState previous, T subject, object parameter = null) { ... }
-    public void OnLeaving(StateMachine<T> machine, IState next, T subject, object parameter = null) { ... }
-    public void Update(StateMachine<T> machine, T subject) { ... }
+    public void OnEntered(IStateMachine<T> machine, IState previous, T subject, object parameter = null) { ... }
+    public void OnLeaving(IStateMachine<T> machine, IState next, T subject, object parameter = null) { ... }
+    public void Update(IStateMachine<T> machine, T subject) { ... }
 
 // After:
 public abstract class ObserverTransitionState<H, FROM, TO> : IState<T>, IObserver<H>
@@ -595,9 +595,9 @@ public PopupStateEndedEvent(IPopupState<T> popupState)
 // Before:
 public abstract class TimedPopupState : IPopupState
 {
-    public abstract void OnEnding(StateMachine<T> machine, T subject, object parameter = null);
-    public void OnStarting(StateMachine<T> machine, T subject, object parameter = null) { ... }
-    public void Update(StateMachine<T> machine, T subject) { ... }
+    public abstract void OnEnding(IStateMachine<T> machine, T subject, object parameter = null);
+    public void OnStarting(IStateMachine<T> machine, T subject, object parameter = null) { ... }
+    public void Update(IStateMachine<T> machine, T subject) { ... }
 }
 
 // After:
@@ -723,7 +723,7 @@ Note: Properties with `protected set` (`CurrentState`, `IsFixedUpdating`, `IsLat
 
 **Rationale:** Purely declarative — the class already satisfies the contract, this makes it explicit.
 
-**Verification:** `dotnet build` succeeds. `typeof(StateMachine<object>).GetInterfaces()` includes `IStateMachine<object>` and `IStateMachine`.
+**Verification:** `dotnet build` succeeds. `typeof(IStateMachine<object>).GetInterfaces()` includes `IStateMachine<object>` and `IStateMachine`.
 
 **If this fails:** Remove `: IStateMachine<T>` from declaration. Compile errors will indicate which member is missing or has a signature mismatch.
 
@@ -744,7 +744,7 @@ Note: Properties with `protected set` (`CurrentState`, `IsFixedUpdating`, `IsLat
 // Before:
 public interface IEventReceiverState<T, E>
 {
-    void ReceiveEvent(StateMachine<T> machine, T subject, E ev);
+    void ReceiveEvent(IStateMachine<T> machine, T subject, E ev);
 }
 
 // After:

@@ -98,7 +98,7 @@ No Unity MonoBehaviour integration exists.
 
 - Plans 1 and 2 have been executed
 - Users will create concrete subclasses (e.g., `class EnemyMachine : MonoBehaviourStateMachine<Enemy>`) — the abstract base class is never placed on a GameObject directly
-- `StateMachine<T>.FixedUpdate()` and `LateUpdate()` signatures are: `void FixedUpdate(StateMachine<T> machine, T subject)` and `void LateUpdate(StateMachine<T> machine, T subject)` (machine-level methods that call through to `CurrentState`)
+- `StateMachine<T>.FixedUpdate()` and `LateUpdate()` signatures are: `void FixedUpdate(IStateMachine<T> machine, T subject)` and `void LateUpdate(IStateMachine<T> machine, T subject)` (machine-level methods that call through to `CurrentState`)
 
 ### Impact Analysis
 
@@ -194,7 +194,7 @@ namespace BAStudio.StatePattern
                 {
                     Debug.LogWarning(
                         $"[{GetType().Name}] ScriptableObject '{so.name}' ({so.GetType().Name}) " +
-                        $"does not implement {typeof(StateMachine<T>).Name}.IState. Skipping.",
+                        $"does not implement {typeof(IStateMachine<T>).Name}.IState. Skipping.",
                         this);
                     continue;
                 }
@@ -203,7 +203,7 @@ namespace BAStudio.StatePattern
                 clone.name = so.name; // Preserve original name (Instantiate appends "(Clone)")
                 clonedInstances ??= new List<Object>();
                 clonedInstances.Add(clone);
-                Machine.CacheByType((StateMachine<T>.IState) clone);
+                Machine.CacheByType((IStateMachine<T>.IState) clone);
             }
         }
 
@@ -319,7 +319,7 @@ namespace BAStudio.StatePattern
 ### Risks
 
 - **Generic MonoBehaviour serialization**: Unity doesn't serialize generic MonoBehaviours. This is fine — `MonoBehaviourStateMachine<T>` is abstract, always subclassed with a concrete `T`. The concrete subclass serializes normally. This is a well-established Unity pattern.
-- **FixedUpdate/LateUpdate signature mismatch**: The machine's `FixedUpdate` and `LateUpdate` take `(StateMachine<T> machine, T subject)` parameters (designed for state-level calls). The MB wrapper calls them with the inner machine's own references. If these signatures change in a future refactor, this file must update. Low risk — signatures are stable.
+- **FixedUpdate/LateUpdate signature mismatch**: The machine's `FixedUpdate` and `LateUpdate` take `(IStateMachine<T> machine, T subject)` parameters (designed for state-level calls). The MB wrapper calls them with the inner machine's own references. If these signatures change in a future refactor, this file must update. Low risk — signatures are stable.
 
 ### Red Team Remediations Applied
 
