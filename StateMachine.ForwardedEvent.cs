@@ -11,6 +11,7 @@ namespace BAStudio.StatePattern
         {
             public StateMachine<T> source;
             public E inner;
+            public static implicit operator E(ForwardedEvent<E> ev) => ev.inner;
 
             public ForwardedEvent(StateMachine<T> source, E inner)
             {
