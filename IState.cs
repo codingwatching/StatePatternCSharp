@@ -6,15 +6,15 @@ namespace BAStudio.StatePattern
     /// </summary>
     public interface IState<T>
     {
-        void OnEntered(IStateMachine<T> machine, IState<T> previous, T subject, object parameter = null);
+        void OnEntered(IStateMachine<T> machine, IState<T> previous, object parameter = null);
 
         /// <summary>
         /// <para>Only happens in StateMachine&lt;T&gt;.Update().</para>
         /// <para>Not guaranteed between OnEntered and OnLeaving — those can trigger ChangeState too.</para>
         /// </summary>
-        void Update(IStateMachine<T> machine, T subject);
+        void Update(IStateMachine<T> machine);
 
-        void OnLeaving(IStateMachine<T> machine, IState<T> next, T subject, object parameter = null);
+        void OnLeaving(IStateMachine<T> machine, IState<T> next, object parameter = null);
 
         /// <summary>
         /// Called after the machine completes the full ChangeState sequence.
@@ -23,8 +23,8 @@ namespace BAStudio.StatePattern
         void Reset();
 
 #if UNITY_2017_1_OR_NEWER
-        void FixedUpdate(IStateMachine<T> machine, T subject) {}
-        void LateUpdate(IStateMachine<T> machine, T subject) {}
+        void FixedUpdate(IStateMachine<T> machine) {}
+        void LateUpdate(IStateMachine<T> machine) {}
 #endif
     }
 }

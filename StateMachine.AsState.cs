@@ -4,21 +4,21 @@ namespace BAStudio.StatePattern
     {
         // --- IState<T> explicit implementation ---
 
-        void IState<T>.OnEntered(IStateMachine<T> machine, IState<T> previous, T subject, object parameter)
+        void IState<T>.OnEntered(IStateMachine<T> machine, IState<T> previous, object parameter)
         {
-            Subject = subject;
+            Subject = machine.Subject;
             OnNestedEntry(previous, parameter);
         }
 
-        void IState<T>.Update(IStateMachine<T> machine, T subject)
+        void IState<T>.Update(IStateMachine<T> machine)
         {
             Update();
         }
 
-        void IState<T>.OnLeaving(IStateMachine<T> machine, IState<T> next, T subject, object parameter)
+        void IState<T>.OnLeaving(IStateMachine<T> machine, IState<T> next, object parameter)
         {
             if (CurrentState is not NoOpState && CurrentState != null)
-                CurrentState.OnLeaving(this, null, subject, parameter);
+                CurrentState.OnLeaving(this, null, parameter);
             CurrentState = new NoOpState();
         }
 
@@ -28,12 +28,12 @@ namespace BAStudio.StatePattern
         }
 
 #if UNITY_2017_1_OR_NEWER
-        void IState<T>.FixedUpdate(IStateMachine<T> machine, T subject)
+        void IState<T>.FixedUpdate(IStateMachine<T> machine)
         {
             FixedUpdate();
         }
 
-        void IState<T>.LateUpdate(IStateMachine<T> machine, T subject)
+        void IState<T>.LateUpdate(IStateMachine<T> machine)
         {
             LateUpdate();
         }

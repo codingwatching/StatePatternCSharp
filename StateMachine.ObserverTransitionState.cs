@@ -18,7 +18,7 @@ namespace BAStudio.StatePattern
                 this.parameter = parameter;
             }
 
-            public void OnEntered(IStateMachine<T> machine, IState<T> previous, T subject, object parameter = null)
+            public void OnEntered(IStateMachine<T> machine, IState<T> previous, object parameter = null)
             {
                 if (typeof(FROM) != previous.GetType()) throw new InvalidOperationException("Transition source state mismatch");
 
@@ -29,12 +29,12 @@ namespace BAStudio.StatePattern
                 handle = observable?.Subscribe(this);
             }
 
-            public void OnLeaving(IStateMachine<T> machine, IState<T> next, T subject, object parameter = null)
+            public void OnLeaving(IStateMachine<T> machine, IState<T> next, object parameter = null)
             {
                 handle!.Dispose();
             }
 
-            public void Update(IStateMachine<T> machine, T subject)
+            public void Update(IStateMachine<T> machine)
             {
                 if (isCompleted)
                 {

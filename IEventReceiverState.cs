@@ -7,7 +7,7 @@ namespace BAStudio.StatePattern
     /// <typeparam name="E">Avoid boxing/unboxing.</typeparam>
     public interface IEventReceiverState<T, E>
     {
-        void ReceiveEvent(IStateMachine<T> machine, T subject, E ev);
+        void ReceiveEvent(IStateMachine<T> machine, E ev);
     }
 
     public interface IEventReceiverState<E>

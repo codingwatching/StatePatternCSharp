@@ -4,9 +4,9 @@ namespace BAStudio.StatePattern
     {
         public sealed class NoOpState : IState<T>
 		{
-			public void OnEntered(IStateMachine<T> machine, IState<T> previous, T subject, object parameter = null) {}
-			public void Update(IStateMachine<T> machine, T subject) {}
-			public void OnLeaving(IStateMachine<T> machine, IState<T> next, T subject, object parameter = null) {}
+			public void OnEntered(IStateMachine<T> machine, IState<T> previous, object parameter = null) {}
+			public void Update(IStateMachine<T> machine) {}
+			public void OnLeaving(IStateMachine<T> machine, IState<T> next, object parameter = null) {}
             public void Reset() {}
 		}
     }

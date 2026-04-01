@@ -76,7 +76,7 @@ namespace BAStudio.StatePattern
             if (PopupStates.Contains(s))
                 throw new Exception("PopupState already added");
             PopupStates.Add(s);
-            s.OnStarting(this, Subject, parameter);
+            s.OnStarting(this, parameter);
             SendEvent(new NewPopupStateEvent(s));
             PopupStateStarted?.Invoke(s);
         }
@@ -92,7 +92,7 @@ namespace BAStudio.StatePattern
             if (PopupStates.Contains(s))
                 throw new Exception("PopupState already added");
             PopupStates.Add(s);
-            s.OnStarting(this, Subject, parameter);
+            s.OnStarting(this, parameter);
             SendEvent(new NewPopupStateEvent(s));
             PopupStateStarted?.Invoke(s);
             return s;
@@ -102,7 +102,7 @@ namespace BAStudio.StatePattern
             if (PopupStatesToEnd == null)
                 PopupStatesToEnd = new List<IPopupState<T>>();
 
-            s.OnEnding(this, Subject, parameter);
+            s.OnEnding(this, parameter);
             PopupStateEnded?.Invoke(s);
             SendEvent(new PopupStateEndedEvent(s));
             if (IsUpdating)
@@ -147,7 +147,7 @@ namespace BAStudio.StatePattern
             var prev = CurrentState;
             CurrentState = state;
             DeliverComponents(state); // Though maybe not useful, calling this here give prev a chance to provide components
-            state.OnEntered(this, prev, Subject, parameter);
+            state.OnEntered(this, prev, parameter);
             PostStateChange(prev);
 
             prev?.Reset();
@@ -172,7 +172,7 @@ namespace BAStudio.StatePattern
             CurrentState = state;
             if (!DeliverOnlyOnceForCachedStates)
                 DeliverComponents(state); // Though maybe not useful, calling this here give prev a chance to provide components
-            state.OnEntered(this, prev, Subject, parameter);
+            state.OnEntered(this, prev, parameter);
             PostStateChange(prev);
 
             prev?.Reset();
@@ -250,7 +250,7 @@ namespace BAStudio.StatePattern
 
             stateChangingDepth++;
 
-            fromState?.OnLeaving(this, toState, Subject, parameter);
+            fromState?.OnLeaving(this, toState, parameter);
             OnStateChanging?.Invoke(fromState, toState);
         }
 
@@ -259,7 +259,7 @@ namespace BAStudio.StatePattern
         {
             if (debugOutput != null && (DebugFlags & DebugFlag_StateChange) != 0)
                 LogFormat("A StateMachine<{0}> has switched from {1} to {2}.", Subject.GetType().Name, fromState?.GetType()?.Name, CurrentState.GetType().Name);
-            SendEvent(new MainStateChangedEvent(fromState, CurrentState));
+            SendEvent(new StateChangedEvent<T>(fromState, CurrentState));
             OnStateChanged?.Invoke(fromState, CurrentState);
 
             stateChangingDepth--;
@@ -339,7 +339,7 @@ namespace BAStudio.StatePattern
             if (CurrentState is not NoOpState)
             {
                 if (CurrentState == null) throw new System.NullReferenceException("CurrentState is null. Did you set a state after instantiate this controller?");
-                else CurrentState.FixedUpdate(this, Subject);
+                else CurrentState.FixedUpdate(this);
             }
         }
 
@@ -347,7 +347,7 @@ namespace BAStudio.StatePattern
         protected void FixedUpdatePopStates()
         {
             if (PopupStates != null)
-                foreach (var ps in PopupStates) ps.FixedUpdate(this, Subject);
+                foreach (var ps in PopupStates) ps.FixedUpdate(this);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -356,7 +356,7 @@ namespace BAStudio.StatePattern
             if (CurrentState is not NoOpState)
             {
                 if (CurrentState == null) throw new System.NullReferenceException("CurrentState is null. Did you set a state after instantiate this controller?");
-                else CurrentState.LateUpdate(this, Subject);
+                else CurrentState.LateUpdate(this);
             }
         }
 
@@ -364,7 +364,7 @@ namespace BAStudio.StatePattern
         protected void LateUpdatePopStates()
         {
             if (PopupStates != null)
-                foreach (var ps in PopupStates) ps.LateUpdate(this, Subject);
+                foreach (var ps in PopupStates) ps.LateUpdate(this);
         }
 #endif
 
@@ -380,7 +380,7 @@ namespace BAStudio.StatePattern
             if (CurrentState is not NoOpState)
             {
                 if (CurrentState == null) throw new System.NullReferenceException("CurrentState is null. Did you set a state after instantiate this controller?");
-                else CurrentState.Update(this, Subject);
+                else CurrentState.Update(this);
             }
         }
 
@@ -391,7 +391,7 @@ namespace BAStudio.StatePattern
                 return;
 
             foreach (var ps in PopupStates)
-                ps.Update(this, Subject);
+                ps.Update(this);
 
             if (PopupStatesToEnd != null)
             {
@@ -432,7 +432,7 @@ namespace BAStudio.StatePattern
         protected void SendEventToCurrentState<E>(E ev)
         {
             if (CurrentState is IEventReceiverState<T, E> ers)
-                ers.ReceiveEvent(this, Subject, ev);
+                ers.ReceiveEvent(this, ev);
             else if (CurrentState is IEventReceiverState<E> ers2)
                 ers2.ReceiveEvent(ev);
         }
@@ -442,7 +442,7 @@ namespace BAStudio.StatePattern
         {
             if (PopupStates != null)
                 foreach (var ps in PopupStates)
-                    if (ps is IEventReceiverState<T, E> ers) ers.ReceiveEvent(this, Subject, ev);
+                    if (ps is IEventReceiverState<T, E> ers) ers.ReceiveEvent(this, ev);
                     else if (ps is IEventReceiverState<E> ers2) ers2.ReceiveEvent(ev);
         }
 
