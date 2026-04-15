@@ -1,6 +1,6 @@
 # statepatterncsharp Library Roadmap
 
-> **Created:** 2026-03-25 | **Last Revised:** 2026-03-29
+> **Created:** 2026-03-25 | **Last Revised:** 2026-04-16
 > **Author:** Claude (agent)
 > **Scope:** Entire statepatterncsharp library — core, multi-track, Unity integration
 
@@ -25,6 +25,7 @@ Phases 1–3 and the new Phase 4 (IStateMachine Facade) are complete and closed.
 - Phase 2 resolver executed and closed — 2026-03-27 (d5cef05)
 - Phase 3 MonoBehaviour wrapper executed and closed — 2026-03-28 (45f4db7)
 - Phase 4 IStateMachine facade + IState<T>/IPopupState<T> extraction executed and closed — 2026-03-29 (7aae3a7)
+- Phase 4 addendum: T1/T2 members + SendEvent<S,E> promoted to IStateMachine<T> — 2026-04-16 (3cbf91e)
 
 ### Active Work
 - None currently. Phase 5 (Hierarchical Machines) is the logical next step.
@@ -89,6 +90,8 @@ Phases 1–3 and the new Phase 4 (IStateMachine Facade) are complete and closed.
   - Ideation: `2603281430-statemachine-as-interface-eval.md`, `2603281600-statemachine-driver-interface-proposal.md`
   - Red team: `2603281700-istatemachine-and-istate-extraction-plan-redteam.md`
   - Execution: `2603281630-istatemachine-and-istate-extraction-plan.md` → `2603281630-istatemachine-and-istate-extraction-walkthrough.md` (7aae3a7)
+- [x] Interface gap closed — T1/T2 setup members + `SendEvent<S,E>` promoted from `StateMachine<T>` to `IStateMachine<T>`
+  - Patch: `2604161200-istatemachine-interface-gap-patch.md` (3cbf91e)
 
 **Exit Criteria:** `IStateMachine.cs`, `IState.cs`, `IPopupState.cs` exist at namespace level; nested interfaces deleted; `StateMachine<T> : IStateMachine<T>`; all state method signatures use `IStateMachine<T>`. ✓
 
@@ -150,3 +153,4 @@ Phases 1–3 and the new Phase 4 (IStateMachine Facade) are complete and closed.
 | 2026-03-26 | Phase 1 marked Done (walkthrough + audit linked); Phase 2 promoted to Current; Phase 5 Parallel Regions stub added for three new ideation seeds |
 | 2026-03-27 | Phase 2 marked Done (walkthrough linked, d5cef05); Phase 3 promoted to Current; priorities updated to Phase 3 execution |
 | 2026-03-29 | Phase 3 marked Done (45f4db7); Phase 4 (IStateMachine Facade) inserted as Done (7aae3a7); old Phase 4→5 (Hierarchical Machines, Current), old Phase 5→6 (Parallel Regions, Future); priorities updated to Phase 5 |
+| 2026-04-16 | Phase 4 addendum: interface gap patch (3cbf91e) — Cache<S>, SetComponent, StateResolver, DeliverOnlyOnceForCachedStates, SendEvent<S,E> promoted to IStateMachine<T> |
