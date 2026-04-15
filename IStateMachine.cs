@@ -23,9 +23,9 @@ namespace BAStudio.StatePattern
     }
 
     /// <summary>
-    /// Typed facade for state machine interaction: state transitions, popup states, events, and observation.
+    /// Typed facade for state machine interaction: state transitions, popup states, events, observation, and setup.
     /// <para>States receive this interface in their lifecycle methods. For operations beyond this facade
-    /// (component delivery, caching, debug), cast to <c>StateMachine&lt;T&gt;</c>.</para>
+    /// (debug), cast to <c>StateMachine&lt;T&gt;</c>.</para>
     /// </summary>
     public interface IStateMachine<T> : IStateMachine
     {
@@ -36,6 +36,7 @@ namespace BAStudio.StatePattern
         void ChangeState<S>(object parameter = null) where S : IState<T>;
 
         bool SendEvent<E>(E ev);
+        bool SendEvent<S, E>(E ev, bool shouldThrow) where S : IState<T>;
 
         void Popup(IPopupState<T> state, object parameter = null);
         S Popup<S>(object parameter = null) where S : IPopupState<T>, new();
@@ -46,5 +47,10 @@ namespace BAStudio.StatePattern
         event Action<IState<T>, IState<T>> OnStateChanged;
         event Action<IPopupState<T>> PopupStateStarted;
         event Action<IPopupState<T>> PopupStateEnded;
+
+        void Cache<S>(S state) where S : IState<T>;
+        void SetComponent<PT, CT>(CT obj) where CT : PT;
+        IStateResolver StateResolver { get; set; }
+        bool DeliverOnlyOnceForCachedStates { get; set; }
     }
 }
