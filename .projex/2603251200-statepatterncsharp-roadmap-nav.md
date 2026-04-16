@@ -1,6 +1,6 @@
 # statepatterncsharp Library Roadmap
 
-> **Created:** 2026-03-25 | **Last Revised:** 2026-04-16
+> **Created:** 2026-03-25 | **Last Revised:** 2026-04-16 (2)
 > **Author:** Claude (agent)
 > **Scope:** Entire statepatterncsharp library — core, multi-track, Unity integration
 
@@ -14,9 +14,9 @@ A C# state pattern library that works cleanly in both pure .NET and Unity contex
 
 ## Current Position
 
-**As of 2026-03-29:**
+**As of 2026-04-16:**
 
-Phases 1–3 and the new Phase 4 (IStateMachine Facade) are complete and closed. The core now has clean mutual-reference interfaces — `IStateMachine<T>`, `IState<T>`, and `IPopupState<T>` — with `StateMachine<T>` implementing `IStateMachine<T>`. States receive `IStateMachine<T>` in all lifecycle methods, decoupling them from the concrete class. Phase 5 (Hierarchical Machines) is now unblocked.
+Phases 1–5 complete and closed. `StateMachine<T>` implements `IState<T>` (machines nestable as states), `Link()`/`Unlink()` provide symmetric peer rings with lateral event broadcast, `MultiTrackStateMachine` is deprecated, and sub-machines receive parent components via entry-time snapshot (`IComponentUser`). Phase 6 (Parallel Regions) is now Current — though the Link/Unlink peer ring already covers the attach/detach proposal; the remaining milestones (multitrack validity eval, trackless parallel regions) need re-evaluation in light of Phase 5's scope.
 
 ### Recent Progress
 - `ObserverTransitionState` added — observer-pattern hook on transitions
@@ -26,10 +26,12 @@ Phases 1–3 and the new Phase 4 (IStateMachine Facade) are complete and closed.
 - Phase 3 MonoBehaviour wrapper executed and closed — 2026-03-28 (45f4db7)
 - Phase 4 IStateMachine facade + IState<T>/IPopupState<T> extraction executed and closed — 2026-03-29 (7aae3a7)
 - Phase 4 addendum: T1/T2 members + SendEvent<S,E> promoted to IStateMachine<T> — 2026-04-16 (3cbf91e)
+- Phase 5 hierarchical machines + peer ring executed and closed — 2026-04-01 (27d5a22)
 
 ### Active Work
-- None currently. Phase 5 (Hierarchical Machines) is the logical next step.
-- `2603281200-noopstate-default-plan.md` — exists but execution status unknown; review before next cycle.
+- Phase 6 (Parallel Regions) — re-evaluation needed; Link/Unlink may already satisfy the attach/detach milestone.
+- `2603301500-sourcegen-state-resolver-plan.md` — untracked active plan; status unknown.
+- `2604161215-mb-statemachine-direct-impl-plan.md` — untracked active plan; status unknown.
 
 ### Known Blockers
 - None.
@@ -97,45 +99,44 @@ Phases 1–3 and the new Phase 4 (IStateMachine Facade) are complete and closed.
 
 ---
 
-### Phase 5: Hierarchical Machines — **Current**
+### Phase 5: Hierarchical Machines + Peer Ring — **Done**
 
-**Goal:** Enable `StateMachine<T>` to implement `IState<T>`, making machines nestable as states within parent machines. Unlocks hierarchical state trees with single-tick cascade.
+**Goal:** Enable `StateMachine<T>` to implement `IState<T>`, making machines nestable as states within parent machines. Unlocks hierarchical state trees with single-tick cascade. Also unified parallel composition via symmetric `Link()`/`Unlink()` peer ring, replacing `MultiTrackStateMachine`.
 
 **Milestones:**
-- [ ] Design and proposal for machine-as-state capability
-  - Ideation: `2603201530-statemachines-as-states-imagine.md`
-  - Execution: *(no plan yet — Phase 4 prerequisite now met)*
+- [x] Unified hierarchical + parallel machine composition
+  - Ideation: `2603201530-statemachines-as-states-imagine.md`, `2603251600-attach-detach-parallel-machines-proposal.md`
+  - Execution: `2603291500-machines-as-states-plan.md` → `2603291500-machines-as-states-walkthrough.md` (27d5a22, 2026-04-01)
 
-**Exit Criteria:** A machine can be used as a state in a parent machine; `Update()` cascades through the tree; constructor problem resolved.
+**Exit Criteria:** `StateMachine<T>` implements `IState<T>`; `Update()` cascades through nested machines; parameterless ctor + deferred subject; `Link()`/`Unlink()` peer ring with lateral event broadcast; `MultiTrackStateMachine` deprecated. ✓
 
 ---
 
-### Phase 6: Parallel Regions — **Future / Speculative**
+### Phase 6: Parallel Regions — **Current**
 
-**Goal:** Extend the machine model with parallel and trackless region support — machines that run multiple concurrent state tracks, with dynamic attach/detach of sub-machines.
+**Goal:** Evaluate remaining parallel-region milestones in light of Phase 5's peer ring. The attach/detach proposal is already superseded by `Link()`/`Unlink()`. Remaining open questions: multitrack validity (is `MultiTrackStateMachine` still needed at all?) and trackless parallel regions (any gaps not covered by the peer ring?).
 
 **Milestones:**
-- [ ] Evaluate multitrack validity in context of machines-as-states
+- [ ] Evaluate multitrack validity in context of machines-as-states + peer ring
   - Ideation: `2603251530-multitrack-validity-with-machines-as-states-eval.md`
-  - Execution: *(no plan yet)*
-- [ ] Design trackless parallel regions
+  - Execution: *(re-evaluation needed — Phase 5 may have superseded this)*
+- [ ] Design trackless parallel regions (if any gap remains after Phase 5 review)
   - Ideation: `2603251545-trackless-parallel-regions-imagine.md`
-  - Execution: *(no plan yet)*
-- [ ] Attach/detach parallel machine API
-  - Ideation: `2603251600-attach-detach-parallel-machines-proposal.md` (proposal — not yet a plan)
-  - Execution: *(no plan yet)*
+  - Execution: *(pending milestone 1 eval)*
+- [x] Attach/detach parallel machine API — **superseded** by `Link()`/`Unlink()` (Phase 5)
+  - Ideation: `2603251600-attach-detach-parallel-machines-proposal.md`
 
-**Exit Criteria:** *(to be defined when proposal matures into a plan)*
+**Exit Criteria:** *(to be defined after multitrack validity eval)*
 
 ---
 
 ## Priorities
 
-**Current focus:** Phase 5 (Hierarchical Machines) — all prerequisites met. Ideation seed exists (`2603201530-statemachines-as-states-imagine.md`); next step is a proposal or plan.
+**Current focus:** Phase 6 (Parallel Regions) — re-evaluation. Phase 5's peer ring supersedes the attach/detach milestone. First step: eval whether `MultiTrackStateMachine` has any remaining validity, and whether trackless parallel regions represent a gap not covered by the peer ring.
 
-**Next up:** Phase 6 (Parallel Regions) — deferred until Phase 5 lands.
+**Deferred:** Trackless parallel regions design — pending multitrack validity eval.
 
-**Deferred:** Phase 6 — three ideation seeds exist but no plans. Multitrack validity eval and trackless parallel regions design are both unstarted.
+**Closed:** Phase 5 milestones (hierarchical machines + peer ring) — fully executed and closed 2026-04-01.
 
 ---
 
@@ -154,3 +155,4 @@ Phases 1–3 and the new Phase 4 (IStateMachine Facade) are complete and closed.
 | 2026-03-27 | Phase 2 marked Done (walkthrough linked, d5cef05); Phase 3 promoted to Current; priorities updated to Phase 3 execution |
 | 2026-03-29 | Phase 3 marked Done (45f4db7); Phase 4 (IStateMachine Facade) inserted as Done (7aae3a7); old Phase 4→5 (Hierarchical Machines, Current), old Phase 5→6 (Parallel Regions, Future); priorities updated to Phase 5 |
 | 2026-04-16 | Phase 4 addendum: interface gap patch (3cbf91e) — Cache<S>, SetComponent, StateResolver, DeliverOnlyOnceForCachedStates, SendEvent<S,E> promoted to IStateMachine<T> |
+| 2026-04-16 | Phase 5 marked Done (27d5a22, 2026-04-01) — IState<T> on StateMachine<T>, Link/Unlink peer ring, ForwardedEvent/PeerStateChangedEvent, IComponentUser snapshot, MultiTrack deprecated; Phase 6 promoted to Current with attach/detach milestone marked superseded |
